@@ -1,0 +1,18 @@
+{
+  "input": { "maxFileSize": 200000 },
+  "output": {
+    "filePath": ".repo-context/output/repo-compressed.xml",
+    "style": "xml",
+    "compress": true,
+    "showLineNumbers": true,
+    "removeEmptyLines": true,
+    "git": { "sortByChanges": false, "includeDiffs": false, "includeLogs": false }
+  },
+  "include": ["**/*.js", "**/*.mjs", "**/*.cjs", "**/*.ts", "**/*.py", "**/*.sh", "**/*.yml", "**/*.yaml", "README.md", "package.json", "**/package.json", ".repo-context/repomix.config.json"],
+  "ignore": {
+    "useGitignore": true,
+    "useDefaultPatterns": true,
+    "customPatterns": ["**/node_modules/**", "**/dist/**", "**/coverage/**", "**/logs/**", "**/*.log", "**/.env*", "**/*secrets*", "**/*credentials*", "**/*.pem", "**/*.key", "**/package-lock.json", ".repo-context/output/**", "**/results.json", "**/pgdata/**", "**/.wrangler/**"]
+  },
+  "security": { "enableSecurityCheck": true }
+}

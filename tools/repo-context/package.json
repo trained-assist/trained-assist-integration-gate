@@ -1,0 +1,7 @@
+{
+  "name": "trained-assist-repo-context",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Deterministic repository packing; no inference",
+  "devDependencies": { "repomix": "1.18.1" }
+}

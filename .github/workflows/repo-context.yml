@@ -1,0 +1,81 @@
+name: Repository context
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  context:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: tools/repo-context/package-lock.json
+      - name: Install pinned packer only (no application build)
+        run: npm ci --prefix tools/repo-context --ignore-scripts
+      - name: Generate structural pack and bounded map
+        run: |
+          mkdir -p .repo-context/output
+          tools/repo-context/node_modules/.bin/repomix --config .repo-context/repomix.config.json
+          python3 tools/repo-context/map.py
+      - name: Upload source-pinned context
+        uses: actions/upload-artifact@v4
+        with:
+          name: repo-context-${{ github.sha }}
+          path: .repo-context/output/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Show entry point
+        run: cat .repo-context/output/REPO-MAP.md >> "$GITHUB_STEP_SUMMARY"
+
+  publish-main:
+    needs: context
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: repo-context-publish
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: repo-context-${{ github.sha }}
+          path: context
+      - name: Publish generated files to separate branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_REPO: ${{ github.repository }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          export GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_KEY_0=http.https://github.com/.extraheader
+          export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          remote="https://github.com/$SOURCE_REPO.git"
+          latest=$(git ls-remote "$remote" refs/heads/main | cut -f1)
+          if [ "$latest" != "$SOURCE_SHA" ]; then
+            echo 'Source is no longer main HEAD; skip stale publication.'
+            exit 0
+          fi
+          cd context
+          git init -b repo-context
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git remote add origin "$remote"
+          old=$(git ls-remote origin refs/heads/repo-context | cut -f1)
+          git add REPO-MAP.md repo-compressed.xml manifest.json
+          git commit -m "context for $SOURCE_SHA"
+          git push --force-with-lease="refs/heads/repo-context:$old" origin HEAD:refs/heads/repo-context
