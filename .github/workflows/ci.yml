@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax check
+        run: npm run check
+      - name: Contract and acceptance tests
+        run: npm test
+      - name: Sandbox scenario (stage I08)
+        run: npm run sandbox
+      - name: Evidence is reproducible
+        run: npm run evidence:verify
