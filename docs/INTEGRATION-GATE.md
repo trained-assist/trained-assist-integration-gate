@@ -135,7 +135,8 @@ requestLiveSmoke({ bindingNames: [] })
 | токен хоста (внутренний API) | `SANDBOX_GATE_HOST_TOKEN` | память процесса-фасада | владелец песочницы | генерируется на каждый прогон | вместе с прогоном |
 | секрет подписи обратных вызовов | `whsub_*` (на подписку) | `${dataRoot}/subscriptions/<hash>.secret`, 0600 | владелец песочницы | выдаётся при подписке | вместе с прогоном |
 | credential binding'и | `sbx/hh#read`, `sbx/hh#write` | `${dataRoot}/bindings/<sha256(ref)>.value`, 0600 | владелец песочницы | синтетическая фикстура, пишет хост | вместе с прогоном |
-| живой test account | `EXTERNAL_TEST_ACCOUNT_TOKEN`, `EXTERNAL_TEST_ACCOUNT_ID` | GCP Secret Manager или GitHub Actions secrets | владелец | **не выданы**, живой smoke заблокирован | не задана (binding не создан) |
+| выдача HH (пилот P26) | `sbx/hh#default` | `${dataRoot}/bindings/<sha256(ref)>.value`, 0600 | владелец песочницы | синтетическая фикстура, пишет хост | вместе с прогоном |
+| живой test account | `EXTERNAL_TEST_ACCOUNT_TOKEN`, `EXTERNAL_TEST_ACCOUNT_ID` | GCP Secret Manager или GitHub Actions secrets | владелец | **не выданы**, живой smoke заблокирован (AC-30) | не задана (binding не создан) |
 
 Значения binding'ов не попадают в окружение процесса, аргументы, ответ, лог и evidence: их читает host-owned резолвер. Это проверяется тестом на потоке отказа и вычисткой в `src/contract/events.js`.
 
@@ -149,3 +150,68 @@ npm run evidence:verify  # детерминизм transcript
 ```
 
 Evidence: `docs/evidence/p25-integration-gate/transcript.json` + `transcript.sha256` (sanitized: без значений binding'ов, секретов, портов и путей хоста).
+
+---
+
+# P26 — HH/домен pilot (этап I08)
+
+Карточка [#65](https://github.com/trained-assist/trained-agent-architecture/issues/65), эпик [#22](https://github.com/trained-assist/trained-agent-architecture/issues/22), приёмка **AC-153**, логи этапа **AC-154**, блокер **AC-30**.
+Документ выше описывает долговременную архитектуру Gate; здесь — первый реальный домен и маппинг существующего cron.
+
+## Что добавлено
+
+| Модуль | Роль |
+|---|---|
+| `src/adapters/http-client.js` | единственный HTTP-транспорт адаптеров: таймаут и недоступность различаются полем `transportError`, решение о них принадлежит адаптеру |
+| `src/adapters/hh-adapter.js` | реалистичный read-only адаптер HH: `hh.search_resumes`, выдача в заголовке, ограниченные повторы на 429/5xx, одна попытка обновить выдачу |
+| `src/provider-emulator/hh-api.js` | эмулятор HH в форме настоящего API (`GET /resumes`, `POST /token`) с очищенным сэмплом и управляемыми сбоями |
+| `src/pilot/cold-search.js` | существующий cron холодного поиска → запрос расписания P22 и исполнение occurrence через общий task flow |
+| `src/contract/live-smoke.js` | одна реализация заявки на живой smoke на все адаптеры |
+
+Транспорт доменного кода извлечён, а не переписан: запрос `GET /resumes` с `text`/`area`/`page`/`per_page`/`order_by`, заголовки `Authorization: Bearer`, `User-Agent` и `HH-User-Agent`, ограничение повторов и правило географии («молча расширить поиск нельзя») повторяют `hh-cold-search-transport.js` из `trained-assist-hh-skill`. Сообщения об ошибках географии — те же, что у домена.
+
+## Границы, которые пилот объявляет честно
+
+- **Почасовая поддержка не выдаётся за production enabled.** Декларация с `intervalHours: 1` маппится на запрос расписания, но `pilotStatus.hourlyProductionEnabled = false`, а запрос с `production: true` отказывает с `PILOT_PRODUCTION_NOT_ENABLED` до создания расписания. Триггер продакшна (`tick`) — решение владельца (P22).
+- **Неподдержанный webhook не обещан.** У HH нет ни вебхуков, ни потока событий: адаптер объявляет `events.webhooks.supported = false` и `events.eventStream.supported = false`, не реализует `subscribe`/`poll`/`reconcile`, а Gate отказывает с `WEBHOOK_NOT_SUPPORTED` и `PROVIDER_EVENTS_NOT_SUPPORTED`, не выдавая фиктивных `webhookSubscriptionId` и не возвращая пустой список событий вместо отказа.
+- **Данные интеграции возвращаются через общий task flow.** Задача подаётся контрактом задачи расписания P22 (`source: 'schedule'`, `autoRun: true`, свой `userTaskId`/`runId`), а результат поиска уходит в терминальный результат задачи. Отдельного канала доставки пилот не создаёт: `gate.taskPort.count() = 0`, `gate.outbox.count() = 0`, `gtdId = null`. Холодные уведомления в домене закрыты, результат живёт в задаче.
+- **Тяжёлые данные — только ссылка.** Адаптер публикует ограниченный итог (`itemCount`, не более 20 `itemIds`, страница) и `privateDetailsRef`; сырые резюме пишутся приватным артефактом 0600 и в лог и в evidence не попадают.
+- **Живой smoke не выполняется.** Режим HH/CRM test account не зафиксирован (AC-30): `requestLiveSmoke` запрашивает проверку и не выполняет её — сначала по отсутствию binding'ов, затем по отсутствию решения владельца.
+
+## Маппинг cron → расписание
+
+Пилот не пересчитывает cron и не заводит второй генератор выражений: пять полей, часовой пояс и эффективный интервал приходят из доменной декларации (`hh-cold-search-cron.js`: один cron-job на вакансию, `Europe/Moscow`, смещение по вакансии) как данные. Ответ — ровно контракт `POST /schedules` расписания P22 плюс `provenance` с именем исходного job'а.
+
+Срабатывания принадлежат расписанию P22 (`scheduleId`, `occurrenceId`, `occurrenceKey`, `userTaskId`, `scheduledFor`): Gate их не выводит, а принятое occurrence исполняет. Идемпотентность пилота — запись результата по `(scheduleId, occurrenceKey)`: повторная доставка того же срабатывания возвращает сохранённый исход и не делает второй запрос к провайдеру и вторую задачу. Отказ самого task flow — нетерминален и ограничен `maxAttempts`, как `max_admit_attempts` у расписания.
+
+## Управляемые сбои
+
+| Сбой | Что происходит | Исход |
+|---|---|---|
+| `rate_limited` | 429 на каждую попытку, два ограниченных повтора, выдача не обновляется | `failed PROVIDER_ERROR`, 3 попытки, каждый повтор в логе с `PROVIDER_TRANSIENT` |
+| `unauthorized` | 401, ровно одна попытка обновить выдачу через `POST /token`, повтор запроса | `blocked PROVIDER_AUTH_EXPIRED` с человеческим текстом в результате задачи |
+| `invalid_items` | 200 без читаемого `items` | `failed PROVIDER_STATE_UNREADABLE`, частичный результат не публикуется |
+| `unreachable` | провайдер не отвечает | `failed PROVIDER_UNREACHABLE`, без шторма повторов (чтение безопасно повторить) |
+| отказ task flow | общий task flow отклонил задачу | `failed TASK_SUBMIT_FAILED`, попытки ограничены, затем `ADMIT_ATTEMPTS_EXHAUSTED` |
+| повтор occurrence | та же пара `(scheduleId, occurrenceKey)` | дедупликация: один запрос, одна задача, один результат |
+
+Таймаут чтения — `failed`, а не `outcome_unknown`: эффекта не было, GET безопасно повторить. `outcome_unknown` остаётся только для мутаций (P25).
+
+## Проверка
+
+```bash
+npm run check
+npm test                 # 38 проверок (19 P25 + 19 P26)
+npm run sandbox:p26      # 14 сценариев, 96 проверок
+npm run evidence:verify:p26
+```
+
+Evidence: `docs/evidence/p26-hh-pilot/transcript.json` + `transcript.sha256` (sanitized: без значений выдачи, секретов, токенов, портов, путей хоста и сырых данных провайдера).
+
+## Что песочница P26 не доказывает
+
+- **Живую выдачу HH.** Токен в песочнице синтетический, срок жизни и refresh эмулируются; настоящий живой smoke требует решения владельца о read-only test-account режиме (AC-30) и остаётся `performed: false`.
+- **Реальную квоту и rate limit.** 429 эмулируется постоянным отказом; настоящий свободный тариф HH не проверялся.
+- **Реальные данные поиска.** Сэмпл синтетический и помечен `containsPersonalData: false`.
+- **Продакшн-триггер расписания.** Маппинг почасового объявлен, но `hourlyProductionEnabled = false`; включение прода — решение владельца.
+- **Перенос доменного кода в домен.** Транспорт извлечён в Gate; удаление старой реализации в `trained-assist-hh-skill` — отдельная работа после переключения (порядок «Выделения» из EXTERNAL-INTEGRATION-GATE).
