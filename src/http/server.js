@@ -19,6 +19,15 @@ const ROUTES = [
   { method: 'POST', pattern: /^\/v1\/callbacks$/, handler: 'callbacks' },
 ];
 
+// Маршруты пилота P26: существующий cron холодного поиска → срабатывания
+// расписания. Пилот не является частью контракта Gate, поэтому он подключается
+// фасадом и может отсутствовать.
+const PILOT_ROUTES = [
+  { method: 'GET', pattern: /^\/v1\/pilot\/cold-search\/status$/, handler: 'pilot_status' },
+  { method: 'POST', pattern: /^\/v1\/pilot\/cold-search\/schedules$/, handler: 'pilot_schedule' },
+  { method: 'POST', pattern: /^\/v1\/pilot\/cold-search\/occurrences$/, handler: 'pilot_occurrence' },
+];
+
 function sendJson(response, status, body) {
   response.writeHead(status, { 'content-type': 'application/json' });
   response.end(JSON.stringify(body));
@@ -28,8 +37,10 @@ function sendJson(response, status, body) {
  * @param {object} gate ядро Gate (src/gate/index.js)
  * @param {object} [options]
  * @param {string} [options.hostToken] токен хоста для внутренних вызовов
+ * @param {object} [options.pilot] пилот карточки P26 (src/pilot/cold-search.js)
  */
-function createHttpServer(gate, { hostToken = null } = {}) {
+function createHttpServer(gate, { hostToken = null, pilot = null } = {}) {
+  const routes = pilot ? [...ROUTES, ...PILOT_ROUTES] : ROUTES;
   const server = http.createServer((request, response) => {
     const chunks = [];
     request.on('data', chunk => chunks.push(chunk));
@@ -40,7 +51,7 @@ function createHttpServer(gate, { hostToken = null } = {}) {
         return;
       }
 
-      const route = ROUTES.find(entry => entry.method === request.method && entry.pattern.test(url.pathname));
+      const route = routes.find(entry => entry.method === request.method && entry.pattern.test(url.pathname));
       if (!route) {
         sendJson(response, 404, { status: 'error', code: 'ROUTE_NOT_FOUND', detail: `no route ${request.method} ${url.pathname}` });
         return;
@@ -130,6 +141,26 @@ function createHttpServer(gate, { hostToken = null } = {}) {
             profileId,
             probe: query.probe === 'true',
           });
+          sendJson(response, 200, result);
+          return;
+        }
+
+        if (route.handler === 'pilot_status') {
+          sendJson(response, 200, { outcome: 'result', ...pilot.status() });
+          return;
+        }
+
+        if (route.handler === 'pilot_schedule') {
+          const body = rawBody ? JSON.parse(rawBody) : {};
+          const result = pilot.declareSchedule({ ...body, profileId });
+          sendJson(response, 200, result);
+          return;
+        }
+
+        if (route.handler === 'pilot_occurrence') {
+          const body = rawBody ? JSON.parse(rawBody) : {};
+          const occurrenceProfileId = body.occurrence && body.occurrence.profileId ? body.occurrence.profileId : profileId;
+          const result = await pilot.runOccurrence({ ...body, profileId: occurrenceProfileId });
           sendJson(response, 200, result);
           return;
         }

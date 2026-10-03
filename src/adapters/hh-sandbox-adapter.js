@@ -1,79 +1,73 @@
 'use strict';
 
-// Единственная реализация адаптера провайдера в этом репозитории (AC-152).
+// Реализация адаптера провайдера hh-sandbox: ровно одна на провайдера (AC-152).
 //
 // Адаптер только переводит вызов в транспорт провайдера и нормализует ответ в
 // исходы контракта C10. Бизнес-правила здесь не живут: ни промптов, ни порогов
 // решений, ни стадий воронки — это остаётся в доменном репозитории.
 //
-// Транспорт один — HTTP к провайдеру. Второй транспортной реализации нет и не
-// заводится: фасад Gate и адаптер не дублируют друг друга.
+// Транспорт один — HTTP к провайдеру (`http-client.js`, общий для всех
+// адаптеров). Второй транспортной реализации нет и не заводится: фасад Gate и
+// адаптер не дублируют друг друга.
 
 const { ADAPTER_PROTOCOL_VERSION } = require('../contract/version');
-
-const DEFAULT_TIMEOUT_MS = 120;
+const { requestLiveSmoke: liveSmokeRequest } = require('../contract/live-smoke');
+const { requestJson, DEFAULT_TIMEOUT_MS } = require('./http-client');
 
 const CAPABILITIES = [
   { name: 'hh.search_status', kind: 'read', scope: 'hh#read' },
   { name: 'hh.application_decide', kind: 'mutation', scope: 'hh#write' },
 ];
 
+// Эмулятор провайдера действительно умеет и webhook, и поток событий, поэтому
+// объявляет оба транспорта (см. `events` в манифесте адаптера).
+const EVENTS = {
+  webhooks: { supported: true, eventTypes: ['application.decision.recorded'] },
+  eventStream: { supported: true },
+};
+
 const REQUIRED_LIVE_BINDINGS = ['EXTERNAL_TEST_ACCOUNT_TOKEN', 'EXTERNAL_TEST_ACCOUNT_ID'];
 
+// Живая проверка этого провайдера невозможна: эмулятор — единственный источник
+// свидетельства на этапе I08, пока владелец не зафиксирует режим test account.
+const requestLiveSmoke = liveSmokeRequest({
+  requiredBindings: REQUIRED_LIVE_BINDINGS,
+  blockedByWhenPresent: 'LIVE_PROVIDER_CLIENT_NOT_BUILT',
+  nextBlocked: 'declare these names in Secret Manager / GitHub Actions secrets, then run the read-only live smoke with a sandbox-owned account',
+  nextDecision: 'the emulator is the accepted evidence for this stage; a live client needs the owner decision on the first real domain (epic #22)',
+});
+
 function postJson(baseUrl, pathname, body, { timeoutMs = DEFAULT_TIMEOUT_MS, fetchImpl } = {}) {
-  const rawBody = JSON.stringify(body);
-  const doFetch = fetchImpl || fetch;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  return doFetch(`${baseUrl}${pathname}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: rawBody,
-    signal: controller.signal,
-  })
-    .then(async response => {
-      const text = await response.text();
-      let parsed;
-      try {
-        parsed = JSON.parse(text);
-      } catch {
-        parsed = { status: 'error', code: 'PROVIDER_ERROR', detail: 'provider returned a non-JSON body' };
-      }
-      return { status: response.status, body: parsed };
-    })
-    .catch(error => {
-      const aborted = Boolean(error && (error.name === 'AbortError' || controller.signal.aborted));
-      return {
-        status: 0,
-        body: {
-          status: aborted ? 'timeout' : 'unreachable',
-          code: aborted ? 'EFFECT_STATE_UNKNOWN' : 'PROVIDER_UNREACHABLE',
-          detail: aborted
-            ? 'the provider did not answer before the caller deadline; the mutation may or may not have been applied'
-            : 'the provider endpoint is unreachable',
-        },
-      };
-    })
-    .finally(() => clearTimeout(timer));
+  return requestJson({ baseUrl, method: 'POST', pathname, body, timeoutMs, fetchImpl }).then(result =>
+    result.body
+      ? result
+      : {
+          status: 0,
+          body: {
+            status: result.transportError === 'timeout' ? 'timeout' : 'unreachable',
+            code: result.transportError === 'timeout' ? 'EFFECT_STATE_UNKNOWN' : 'PROVIDER_UNREACHABLE',
+            detail:
+              result.transportError === 'timeout'
+                ? 'the provider did not answer before the caller deadline; the mutation may or may not have been applied'
+                : 'the provider endpoint is unreachable',
+          },
+        }
+  );
 }
 
 function getJson(baseUrl, pathname, { timeoutMs = DEFAULT_TIMEOUT_MS, fetchImpl } = {}) {
-  const doFetch = fetchImpl || fetch;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  return doFetch(`${baseUrl}${pathname}`, { method: 'GET', signal: controller.signal })
-    .then(async response => {
-      const text = await response.text();
-      let parsed;
-      try {
-        parsed = JSON.parse(text);
-      } catch {
-        parsed = { status: 'error', code: 'PROVIDER_ERROR', detail: 'provider returned a non-JSON body' };
-      }
-      return { status: response.status, body: parsed };
-    })
-    .catch(() => ({ status: 0, body: { status: 'unreachable', code: 'PROVIDER_UNREACHABLE', detail: 'the provider endpoint is unreachable' } }))
-    .finally(() => clearTimeout(timer));
+  return requestJson({ baseUrl, method: 'GET', pathname, timeoutMs, fetchImpl }).then(result =>
+    result.body
+      ? result
+      : {
+          status: 0,
+          body: {
+            status: 'unreachable',
+            code: 'PROVIDER_UNREACHABLE',
+            detail: 'the provider endpoint is unreachable',
+          },
+        }
+  );
 }
 
 /**
@@ -208,18 +202,11 @@ function createProviderAdapter({ baseUrl, log, timeoutMs = DEFAULT_TIMEOUT_MS, f
     };
   }
 
-  function requestLiveSmoke({ bindingNames = [] } = {}) {
-    const missing = REQUIRED_LIVE_BINDINGS.filter(name => !bindingNames.includes(name));
-    if (missing.length > 0) {
-      return { attempted: true, performed: false, blockedBy: 'NO_TEST_ACCOUNT_BINDING', missingBindings: missing, next: 'declare these names in Secret Manager / GitHub Actions secrets, then run the read-only live smoke with a sandbox-owned account' };
-    }
-    return { attempted: true, performed: false, blockedBy: 'LIVE_PROVIDER_CLIENT_NOT_BUILT', missingBindings: [], next: 'the emulator is the accepted evidence for this stage; a live client needs the owner decision on the first real domain (epic #22)' };
-  }
-
   return {
     provider: 'hh-sandbox',
     protocolVersion: ADAPTER_PROTOCOL_VERSION,
     capabilities: CAPABILITIES,
+    events: EVENTS,
     invoke,
     subscribe,
     unsubscribe,
