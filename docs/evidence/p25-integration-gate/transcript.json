@@ -1,0 +1,733 @@
+{
+  "schemaVersion": 1,
+  "card": "P25",
+  "epic": "E6 #22",
+  "stage": "I08",
+  "contract": "C10",
+  "occurredAt": "2026-10-03T09:00:00.000Z",
+  "clock": "virtual",
+  "sandboxRoot": ".sandbox/p25-<pid>/",
+  "summary": {
+    "scenarios": 13,
+    "checks": 80,
+    "passed": 80,
+    "failed": 0,
+    "status": "PASS"
+  },
+  "scenarios": [
+    {
+      "name": "success",
+      "fault": "success",
+      "steps": [
+        {
+          "event": "gate.invoke.read",
+          "outcome": "result",
+          "eventId": "evt_ca9f59fb4b6f",
+          "profileId": "profile-sandbox-1",
+          "userTaskId": "ut-read-1"
+        },
+        {
+          "event": "gate.invoke.mutation",
+          "outcome": "result",
+          "operationId": "op-success-1",
+          "externalOperationRef": "op_1230c2fb89ee",
+          "eventId": "evt_451a60e5cbd3"
+        },
+        {
+          "event": "emulator.deliveries",
+          "posted": 1,
+          "applied": 1,
+          "duplicatesIgnored": 0
+        }
+      ],
+      "checks": [
+        {
+          "name": "read outcome is result",
+          "passed": true,
+          "detail": "expected \"result\", got \"result\""
+        },
+        {
+          "name": "read keeps profile scope",
+          "passed": true,
+          "detail": "expected \"profile-sandbox-1\", got \"profile-sandbox-1\""
+        },
+        {
+          "name": "read keeps userTaskId",
+          "passed": true,
+          "detail": "expected \"ut-read-1\", got \"ut-read-1\""
+        },
+        {
+          "name": "mutation outcome is result",
+          "passed": true,
+          "detail": "expected \"result\", got \"result\""
+        },
+        {
+          "name": "mutation has external ref",
+          "passed": true,
+          "detail": "expected \"string\", got \"string\""
+        },
+        {
+          "name": "exactly one provider effect",
+          "passed": true,
+          "detail": "expected 1, got 1"
+        },
+        {
+          "name": "one callback delivered",
+          "passed": true,
+          "detail": "expected 1, got 1"
+        },
+        {
+          "name": "one callback applied",
+          "passed": true,
+          "detail": "expected 1, got 1"
+        },
+        {
+          "name": "no duplicate callbacks",
+          "passed": true,
+          "detail": "expected 0, got 0"
+        },
+        {
+          "name": "one outbox event",
+          "passed": true,
+          "detail": "expected 1, got 1"
+        },
+        {
+          "name": "no task created for a callback of an existing operation",
+          "passed": true,
+          "detail": "expected 0, got 0"
+        }
+      ]
+    },
+    {
+      "name": "error",
+      "fault": "error",
+      "steps": [
+        {
+          "event": "gate.invoke.mutation",
+          "outcome": "failed",
+          "code": "PROVIDER_ERROR",
+          "operationId": "op-error-1"
+        }
+      ],
+      "checks": [
+        {
+          "name": "mutation outcome is failed",
+          "passed": true,
+          "detail": "expected \"failed\", got \"failed\""
+        },
+        {
+          "name": "provider error code",
+          "passed": true,
+          "detail": "expected \"PROVIDER_ERROR\", got \"PROVIDER_ERROR\""
+        },
+        {
+          "name": "no provider effect",
+          "passed": true,
+          "detail": "expected 0, got 0"
+        },
+        {
+          "name": "no outbox event",
+          "passed": true,
+          "detail": "expected 0, got 0"
+        }
+      ]
+    },
+    {
+      "name": "delay",
+      "fault": "delay",
+      "steps": [
+        {
+          "event": "gate.invoke.mutation",
+          "outcome": "outcome_unknown",
+          "code": "EFFECT_STATE_UNKNOWN",
+          "operationId": "op-delay-1",
+          "retryAllowed": false
+        },
+        {
+          "event": "gate.invoke.retry_before_reconcile",
+          "outcome": "outcome_unknown",
+          "code": "RETRY_BEFORE_RECONCILE",
+          "retryAllowed": false
+        },
+        {
+          "event": "gate.reconcile",
+          "outcome": "result",
+          "reconciled": true,
+          "retryAllowed": true,
+          "externalOperationRef": "op_9866bbb78f27"
+        },
+        {
+          "event": "gate.invoke.retry_after_reconcile",
+          "outcome": "result",
+          "externalOperationRef": "op_9866bbb78f27"
+        }
+      ],
+      "checks": [
+        {
+          "name": "timeout after send is outcome_unknown",
+          "passed": true,
+          "detail": "expected \"outcome_unknown\", got \"outcome_unknown\""
+        },
+        {
+          "name": "unknown code",
+          "passed": true,
+          "detail": "expected \"EFFECT_STATE_UNKNOWN\", got \"EFFECT_STATE_UNKNOWN\""
+        },
+        {
+          "name": "retry is not allowed while unknown",
+          "passed": true,
+          "detail": "expected false, got false"
+        },
+        {
+          "name": "the effect already happened on the provider",
+          "passed": true,
+          "detail": "expected 1, got 1"
+        },
+        {
+          "name": "blind retry is refused",
+          "passed": true,
+          "detail": "expected \"RETRY_BEFORE_RECONCILE\", got \"RETRY_BEFORE_RECONCILE\""
+        },
+        {
+          "name": "blind retry produced no second effect",
+          "passed": true,
+          "detail": "expected 1, got 1"
+        },
+        {
+          "name": "reconcile confirms the outcome",
+          "passed": true,
+          "detail": "expected \"result\", got \"result\""
+        },
+        {
+          "name": "reconcile marks the operation reconciled",
+          "passed": true,
+          "detail": "expected true, got true"
+        },
+        {
+          "name": "retry is allowed after reconcile",
+          "passed": true,
+          "detail": "expected true, got true"
+        },
+        {
+          "name": "retry after reconcile returns the same receipt",
+          "passed": true,
+          "detail": "expected \"result\", got \"result\""
+        },
+        {
+          "name": "still exactly one provider effect",
+          "passed": true,
+          "detail": "expected 1, got 1"
+        },
+        {
+          "name": "late callback delivered once",
+          "passed": true,
+          "detail": "expected 1, got 1"
+        },
+        {
+          "name": "one outbox event",
+          "passed": true,
+          "detail": "expected 1, got 1"
+        }
+      ]
+    },
+    {
+      "name": "auth_expiry",
+      "fault": "auth_expiry",
+      "steps": [
+        {
+          "event": "gate.invoke.read",
+          "outcome": "blocked",
+          "code": "PROVIDER_AUTH_EXPIRED",
+          "safeSummary": "Подключение к внешнему сервису истекло: обновите доступ в настройках интеграции"
+        },
+        {
+          "event": "gate.invoke.mutation",
+          "outcome": "blocked",
+          "code": "PROVIDER_AUTH_EXPIRED"
+        },
+        {
+          "event": "gate.capabilities",
+          "authHealth": "expired",
+          "capabilities": [
+            {
+              "name": "hh.search_status",
+              "enabled": false
+            },
+            {
+              "name": "hh.application_decide",
+              "enabled": false
+            }
+          ]
+        }
+      ],
+      "checks": [
+        {
+          "name": "read is blocked",
+          "passed": true,
+          "detail": "expected \"blocked\", got \"blocked\""
+        },
+        {
+          "name": "auth expiry code",
+          "passed": true,
+          "detail": "expected \"PROVIDER_AUTH_EXPIRED\", got \"PROVIDER_AUTH_EXPIRED\""
+        },
+        {
+          "name": "blocked carries a human summary",
+          "passed": true,
+          "detail": "expected to find обновите"
+        },
+        {
+          "name": "mutation is blocked",
+          "passed": true,
+          "detail": "expected \"blocked\", got \"blocked\""
+        },
+        {
+          "name": "no provider effect",
+          "passed": true,
+          "detail": "expected 0, got 0"
+        },
+        {
+          "name": "readiness probe reports expired auth",
+          "passed": true,
+          "detail": "expected \"expired\", got \"expired\""
+        },
+        {
+          "name": "capabilities are disabled while the binding is expired",
+          "passed": true,
+          "detail": "expected true, got true"
+        }
+      ]
+    },
+    {
+      "name": "duplicate_callback",
+      "fault": "duplicate_callback",
+      "steps": [
+        {
+          "event": "gate.invoke.mutation",
+          "outcome": "result",
+          "operationId": "op-dup-1"
+        },
+        {
+          "event": "emulator.deliveries",
+          "posted": 3,
+          "applied": 1,
+          "duplicatesIgnored": 2
+        }
+      ],
+      "checks": [
+        {
+          "name": "mutation outcome is result",
+          "passed": true,
+          "detail": "expected \"result\", got \"result\""
+        },
+        {
+          "name": "three deliveries posted",
+          "passed": true,
+          "detail": "expected 3, got 3"
+        },
+        {
+          "name": "exactly one applied",
+          "passed": true,
+          "detail": "expected 1, got 1"
+        },
+        {
+          "name": "two duplicates ignored",
+          "passed": true,
+          "detail": "expected 2, got 2"
+        },
+        {
+          "name": "one outbox event",
+          "passed": true,
+          "detail": "expected 1, got 1"
+        },
+        {
+          "name": "one inbox applied entry",
+          "passed": true,
+          "detail": "expected 1, got 1"
+        },
+        {
+          "name": "no task created",
+          "passed": true,
+          "detail": "expected 0, got 0"
+        }
+      ]
+    },
+    {
+      "name": "unreachable",
+      "fault": "unreachable",
+      "steps": [
+        {
+          "event": "gate.invoke.mutation",
+          "outcome": "failed",
+          "code": "PROVIDER_UNREACHABLE"
+        }
+      ],
+      "checks": [
+        {
+          "name": "unreachable is failed",
+          "passed": true,
+          "detail": "expected \"failed\", got \"failed\""
+        },
+        {
+          "name": "unreachable code",
+          "passed": true,
+          "detail": "expected \"PROVIDER_UNREACHABLE\", got \"PROVIDER_UNREACHABLE\""
+        },
+        {
+          "name": "no provider effect",
+          "passed": true,
+          "detail": "expected 0, got 0"
+        }
+      ]
+    },
+    {
+      "name": "expired_binding",
+      "fault": "success",
+      "steps": [
+        {
+          "event": "gate.invoke.read",
+          "outcome": "blocked",
+          "code": "BINDING_EXPIRED",
+          "safeSummary": "Подключение к внешнему сервису истекло: обновите доступ в настройках интеграции"
+        },
+        {
+          "event": "gate.capabilities",
+          "authHealth": "expired"
+        }
+      ],
+      "checks": [
+        {
+          "name": "expired binding is blocked",
+          "passed": true,
+          "detail": "expected \"blocked\", got \"blocked\""
+        },
+        {
+          "name": "expired binding code",
+          "passed": true,
+          "detail": "expected \"BINDING_EXPIRED\", got \"BINDING_EXPIRED\""
+        },
+        {
+          "name": "expired binding carries a human summary",
+          "passed": true,
+          "detail": "expected to find обновите"
+        },
+        {
+          "name": "no provider call was made",
+          "passed": true,
+          "detail": "expected 0, got 0"
+        },
+        {
+          "name": "readiness reports expired auth",
+          "passed": true,
+          "detail": "expected \"expired\", got \"expired\""
+        }
+      ]
+    },
+    {
+      "name": "cross_profile_scope",
+      "fault": "success",
+      "steps": [
+        {
+          "event": "gate.invoke.read",
+          "outcome": "blocked",
+          "code": "BINDING_SCOPE_MISMATCH"
+        },
+        {
+          "event": "gate.poll",
+          "outcome": "blocked",
+          "code": "BINDING_SCOPE_MISMATCH"
+        },
+        {
+          "event": "gate.subscribe",
+          "outcome": "result",
+          "webhookSubscriptionId": "whsub_66797e228d81",
+          "transport": "webhook"
+        },
+        {
+          "event": "gate.receive_callback",
+          "status": 401,
+          "reasonCode": "CALLBACK_SIGNATURE_INVALID"
+        }
+      ],
+      "checks": [
+        {
+          "name": "foreign profile cannot read",
+          "passed": true,
+          "detail": "expected \"BINDING_SCOPE_MISMATCH\", got \"BINDING_SCOPE_MISMATCH\""
+        },
+        {
+          "name": "foreign profile cannot poll",
+          "passed": true,
+          "detail": "expected \"BINDING_SCOPE_MISMATCH\", got \"BINDING_SCOPE_MISMATCH\""
+        },
+        {
+          "name": "subscription is active",
+          "passed": true,
+          "detail": "expected \"active\", got \"active\""
+        },
+        {
+          "name": "forged callback is rejected",
+          "passed": true,
+          "detail": "expected \"CALLBACK_SIGNATURE_INVALID\", got \"CALLBACK_SIGNATURE_INVALID\""
+        },
+        {
+          "name": "no provider call was made for a foreign profile",
+          "passed": true,
+          "detail": "expected 0, got 0"
+        }
+      ]
+    },
+    {
+      "name": "webhook_lifecycle",
+      "fault": "success",
+      "steps": [
+        {
+          "event": "gate.receive_callback",
+          "status": 202,
+          "reasonCode": "CALLBACK_ACCEPTED",
+          "receiptId": "inbox_0d127e70a953632ccb72cfd8",
+          "providerEventId": "evt-lifecycle-1"
+        },
+        {
+          "event": "gate.outbox",
+          "events": 1
+        },
+        {
+          "event": "gate.receive_callback.replay",
+          "status": 202,
+          "reasonCode": "DUPLICATE_CALLBACK_IGNORED",
+          "duplicate": true
+        },
+        {
+          "event": "gate.signature.replay_window",
+          "ok": false,
+          "reasonCode": "CALLBACK_REPLAY_WINDOW"
+        }
+      ],
+      "checks": [
+        {
+          "name": "subscription secret is host-owned",
+          "passed": true,
+          "detail": "expected \"string\", got \"string\""
+        },
+        {
+          "name": "callback is accepted",
+          "passed": true,
+          "detail": "expected \"CALLBACK_ACCEPTED\", got \"CALLBACK_ACCEPTED\""
+        },
+        {
+          "name": "durable receipt exists before the ACK",
+          "passed": true,
+          "detail": "expected true, got true"
+        },
+        {
+          "name": "ACK is returned before dispatch completes",
+          "passed": true,
+          "detail": "expected true, got true"
+        },
+        {
+          "name": "dispatch published exactly one event",
+          "passed": true,
+          "detail": "expected 1, got 1"
+        },
+        {
+          "name": "ACK latency is below the dispatch latency",
+          "passed": true,
+          "detail": "expected true, got true"
+        },
+        {
+          "name": "duplicate callback is ignored",
+          "passed": true,
+          "detail": "expected \"DUPLICATE_CALLBACK_IGNORED\", got \"DUPLICATE_CALLBACK_IGNORED\""
+        },
+        {
+          "name": "still one outbox event",
+          "passed": true,
+          "detail": "expected 1, got 1"
+        },
+        {
+          "name": "stale timestamp is outside the replay window",
+          "passed": true,
+          "detail": "expected false, got false"
+        },
+        {
+          "name": "stale timestamp code",
+          "passed": true,
+          "detail": "expected \"CALLBACK_REPLAY_WINDOW\", got \"CALLBACK_REPLAY_WINDOW\""
+        }
+      ]
+    },
+    {
+      "name": "no_second_task",
+      "fault": "success",
+      "steps": [
+        {
+          "event": "gate.ledger",
+          "operationId": "op-second-task-1",
+          "outcome": "result",
+          "state": "completed",
+          "callback": {
+            "eventId": "evt_aec40d02e3be",
+            "providerEventId": "evt_aec40d02e3be",
+            "at": "2026-10-03T09:01:00.000Z"
+          }
+        }
+      ],
+      "checks": [
+        {
+          "name": "mutation outcome is result",
+          "passed": true,
+          "detail": "expected \"result\", got \"result\""
+        },
+        {
+          "name": "callback updated the existing operation",
+          "passed": true,
+          "detail": "expected \"result\", got \"result\""
+        },
+        {
+          "name": "operation is reconciled by the callback",
+          "passed": true,
+          "detail": "expected true, got true"
+        },
+        {
+          "name": "exactly one outbox event",
+          "passed": true,
+          "detail": "expected 1, got 1"
+        },
+        {
+          "name": "no second task was created",
+          "passed": true,
+          "detail": "expected 0, got 0"
+        }
+      ]
+    },
+    {
+      "name": "single_adapter_implementation",
+      "fault": "success",
+      "steps": [
+        {
+          "event": "gate.registry",
+          "providers": [
+            "hh-sandbox"
+          ],
+          "protocolVersion": "provider-adapter/v1"
+        },
+        {
+          "event": "gate.registry.duplicate",
+          "outcome": "ADAPTER_ALREADY_REGISTERED"
+        },
+        {
+          "event": "gate.registry.protocol",
+          "outcome": "ADAPTER_PROTOCOL_UNSUPPORTED"
+        }
+      ],
+      "checks": [
+        {
+          "name": "exactly one provider is registered",
+          "passed": true,
+          "detail": "expected 1, got 1"
+        },
+        {
+          "name": "a second adapter implementation is refused",
+          "passed": true,
+          "detail": "expected \"ADAPTER_ALREADY_REGISTERED\", got \"ADAPTER_ALREADY_REGISTERED\""
+        },
+        {
+          "name": "an unsupported adapter protocol is refused",
+          "passed": true,
+          "detail": "expected \"ADAPTER_PROTOCOL_UNSUPPORTED\", got \"ADAPTER_PROTOCOL_UNSUPPORTED\""
+        }
+      ]
+    },
+    {
+      "name": "live_smoke",
+      "fault": "success",
+      "steps": [
+        {
+          "event": "provider.request_live_smoke",
+          "attempted": true,
+          "performed": false,
+          "blockedBy": "NO_TEST_ACCOUNT_BINDING",
+          "missingBindings": [
+            "EXTERNAL_TEST_ACCOUNT_TOKEN",
+            "EXTERNAL_TEST_ACCOUNT_ID"
+          ]
+        }
+      ],
+      "checks": [
+        {
+          "name": "live smoke is requested",
+          "passed": true,
+          "detail": "expected true, got true"
+        },
+        {
+          "name": "live smoke is not performed",
+          "passed": true,
+          "detail": "expected false, got false"
+        },
+        {
+          "name": "live smoke is blocked by the missing test account",
+          "passed": true,
+          "detail": "expected \"NO_TEST_ACCOUNT_BINDING\", got \"NO_TEST_ACCOUNT_BINDING\""
+        }
+      ]
+    },
+    {
+      "name": "fidelity",
+      "fault": "success",
+      "steps": [
+        {
+          "event": "provider.fidelity",
+          "mode": "emulator",
+          "liveSandbox": "unsupported",
+          "containsPersonalData": false,
+          "liveSmokePerformed": false,
+          "emulatedProperties": [
+            "auth per operation",
+            "quota / rate limit",
+            "real webhook delivery",
+            "real provider data"
+          ]
+        }
+      ],
+      "checks": [
+        {
+          "name": "the provider is emulated",
+          "passed": true,
+          "detail": "expected \"emulator\", got \"emulator\""
+        },
+        {
+          "name": "no live sandbox is claimed",
+          "passed": true,
+          "detail": "expected \"unsupported\", got \"unsupported\""
+        },
+        {
+          "name": "the sample carries no personal data",
+          "passed": true,
+          "detail": "expected false, got false"
+        },
+        {
+          "name": "a green emulator run is not a live provider test",
+          "passed": true,
+          "detail": "expected false, got false"
+        }
+      ]
+    }
+  ],
+  "acceptance": {
+    "AC-150": "webhook: signature verified, durable inbox receipt, dedup by providerEventId and operationId, fast ACK, async dispatch",
+    "AC-151": "mutation timeout is outcome_unknown; retry is refused until reconcile confirms the outcome",
+    "AC-152": "one adapter implementation per provider; the registry refuses a second one; business rules stay out of the gate",
+    "AC-250": "verify → inbox + dedup → fast ACK",
+    "AC-251": "operationId is durable before the provider call; unknown → reconcile → retry",
+    "AC-252": "principal is taken from the binding via the host-owned resolver, never from the caller",
+    "AC-253": "a callback of an existing operation updates its state and creates no second task"
+  },
+  "fidelity": {
+    "provider": "hh-sandbox",
+    "mode": "emulator",
+    "liveSandbox": "unsupported",
+    "liveSmokePerformed": false,
+    "note": "a green emulator run is not a live provider test"
+  }
+}

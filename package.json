@@ -1,0 +1,17 @@
+{
+  "name": "trained-assist-integration-gate",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Trained Assist External Integration Gate: versioned invoke/subscribe/reconcile/events, bindings, webhook inbox",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "check": "node scripts/check-syntax.js",
+    "test": "node --test tests/*.test.js",
+    "sandbox": "node scripts/sandbox/integration-gate-sandbox.mjs",
+    "evidence:verify": "node scripts/sandbox/integration-gate-sandbox.mjs --verify"
+  },
+  "devDependencies": {}
+}
