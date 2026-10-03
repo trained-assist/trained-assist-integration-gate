@@ -1,0 +1,844 @@
+{
+  "schemaVersion": 1,
+  "card": "P26",
+  "epic": "E6 #22",
+  "stage": "I08",
+  "contract": "C10",
+  "occurredAt": "2026-10-03T09:00:00.000Z",
+  "clock": "virtual",
+  "sandboxRoot": ".sandbox/p26-<pid>/",
+  "summary": {
+    "scenarios": 14,
+    "checks": 96,
+    "passed": 96,
+    "failed": 0,
+    "status": "PASS"
+  },
+  "scenarios": [
+    {
+      "name": "cron_mapped_hourly",
+      "fault": "ok",
+      "steps": [
+        {
+          "event": "pilot.declare_schedule",
+          "outcome": "result",
+          "cron": "39 * * * *",
+          "timezone": "Europe/Moscow",
+          "intervalHours": 1,
+          "intervalSource": "domain_cron_declaration",
+          "sourceJobName": "cold-search:vacancy-8801"
+        },
+        {
+          "event": "pilot.declare_schedule.half_hourly",
+          "cron": "9,39 * * * *",
+          "intervalHours": 0.5
+        },
+        {
+          "event": "pilot.declare_schedule.daily",
+          "cron": "4 17 * * *",
+          "intervalHours": 24
+        }
+      ],
+      "checks": [
+        {
+          "name": "hourly cron is taken from the domain declaration",
+          "passed": true,
+          "detail": "expected \"39 * * * *\", got \"39 * * * *\""
+        },
+        {
+          "name": "hourly timezone is Europe/Moscow",
+          "passed": true,
+          "detail": "expected \"Europe/Moscow\", got \"Europe/Moscow\""
+        },
+        {
+          "name": "the effective interval is reported, not recomputed",
+          "passed": true,
+          "detail": "expected \"domain_cron_declaration\", got \"domain_cron_declaration\""
+        },
+        {
+          "name": "hourly is mapped",
+          "passed": true,
+          "detail": "expected true, got true"
+        },
+        {
+          "name": "hourly is not production enabled",
+          "passed": true,
+          "detail": "expected false, got false"
+        },
+        {
+          "name": "the prod trigger is not configured",
+          "passed": true,
+          "detail": "expected false, got false"
+        },
+        {
+          "name": "sub-hourly declaration is accepted as data",
+          "passed": true,
+          "detail": "expected \"9,39 * * * *\", got \"9,39 * * * *\""
+        },
+        {
+          "name": "daily declaration is accepted as data",
+          "passed": true,
+          "detail": "expected \"4 17 * * *\", got \"4 17 * * *\""
+        }
+      ]
+    },
+    {
+      "name": "production_enable_refused",
+      "fault": "ok",
+      "steps": [
+        {
+          "event": "pilot.declare_schedule.production",
+          "outcome": "blocked",
+          "code": "PILOT_PRODUCTION_NOT_ENABLED",
+          "scheduleRequest": null
+        },
+        {
+          "event": "pilot.status",
+          "mode": "sandbox",
+          "hourlyProductionEnabled": false,
+          "prodTriggerConfigured": false,
+          "liveTaskFlowWired": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "a production request is refused",
+          "passed": true,
+          "detail": "expected \"PILOT_PRODUCTION_NOT_ENABLED\", got \"PILOT_PRODUCTION_NOT_ENABLED\""
+        },
+        {
+          "name": "no schedule request is produced",
+          "passed": true,
+          "detail": "expected null, got null"
+        },
+        {
+          "name": "the refusal keeps hourly unmapped in production",
+          "passed": true,
+          "detail": "expected false, got false"
+        },
+        {
+          "name": "the pilot runs in the sandbox mode",
+          "passed": true,
+          "detail": "expected \"sandbox\", got \"sandbox\""
+        },
+        {
+          "name": "the live task flow is not wired",
+          "passed": true,
+          "detail": "expected false, got false"
+        },
+        {
+          "name": "no live smoke was performed",
+          "passed": true,
+          "detail": "expected false, got false"
+        }
+      ]
+    },
+    {
+      "name": "occurrence_delivers_result",
+      "fault": "ok",
+      "steps": [
+        {
+          "event": "pilot.run_occurrence",
+          "outcome": "result",
+          "deduplicated": false,
+          "userTaskId": "ut-vacancy-8801-2026-10-03T10:00:00Z",
+          "runId": "run-2026-10-03T10-00-00Z",
+          "operationId": "op_acancy-8801-2026",
+          "itemCount": 4,
+          "privateDetailsRef": "hh-search/op_acancy-8801-2"
+        },
+        {
+          "event": "task_flow.submitted",
+          "count": 1,
+          "source": "schedule",
+          "autoRun": true,
+          "scheduleId": "cold-search:vacancy-8801",
+          "occurrenceKey": "2026-10-03T10:00:00Z"
+        },
+        {
+          "event": "task_flow.completed",
+          "count": 1,
+          "outcome": "result",
+          "itemCount": 4
+        },
+        {
+          "event": "gate.side_channels",
+          "taskPortTasks": 0,
+          "outboxEvents": 0,
+          "gtdId": null
+        }
+      ],
+      "checks": [
+        {
+          "name": "the read succeeds",
+          "passed": true,
+          "detail": "expected \"result\", got \"result\""
+        },
+        {
+          "name": "the task carries the schedule userTaskId",
+          "passed": true,
+          "detail": "expected \"ut-vacancy-8801-2026-10-03T10:00:00Z\", got \"ut-vacancy-8801-2026-10-03T10:00:00Z\""
+        },
+        {
+          "name": "the run id comes from the common task flow",
+          "passed": true,
+          "detail": "expected \"string\", got \"string\""
+        },
+        {
+          "name": "the sanitized sample is bounded",
+          "passed": true,
+          "detail": "expected 4, got 4"
+        },
+        {
+          "name": "heavy data stays an artifact ref",
+          "passed": true,
+          "detail": "expected \"string\", got \"string\""
+        },
+        {
+          "name": "exactly one provider read",
+          "passed": true,
+          "detail": "expected 1, got 1"
+        },
+        {
+          "name": "exactly one task was submitted",
+          "passed": true,
+          "detail": "expected 1, got 1"
+        },
+        {
+          "name": "the task is submitted by the schedule source",
+          "passed": true,
+          "detail": "expected \"schedule\", got \"schedule\""
+        },
+        {
+          "name": "the task runs without clarifications",
+          "passed": true,
+          "detail": "expected true, got true"
+        },
+        {
+          "name": "the integration data returns as the task result",
+          "passed": true,
+          "detail": "expected 4, got 4"
+        },
+        {
+          "name": "the task result carries the operation id",
+          "passed": true,
+          "detail": "expected \"op_acancy-8801-2026\", got \"op_acancy-8801-2026\""
+        },
+        {
+          "name": "no second task is created by the gate",
+          "passed": true,
+          "detail": "expected 0, got 0"
+        },
+        {
+          "name": "no separate delivery channel is created",
+          "passed": true,
+          "detail": "expected 0, got 0"
+        },
+        {
+          "name": "no GTD is created",
+          "passed": true,
+          "detail": "expected null, got null"
+        }
+      ]
+    },
+    {
+      "name": "rate_limited_bounded_retries",
+      "fault": "rate_limited",
+      "steps": [
+        {
+          "event": "pilot.run_occurrence",
+          "outcome": "failed",
+          "code": "PROVIDER_ERROR",
+          "providerAttempts": 3,
+          "pilotAttempts": 1
+        },
+        {
+          "event": "gate.log.retries",
+          "count": 2,
+          "reasonCodes": [
+            "PROVIDER_TRANSIENT"
+          ],
+          "httpStatuses": [
+            429
+          ]
+        },
+        {
+          "event": "task_flow.completed",
+          "outcome": "failed",
+          "code": "PROVIDER_ERROR"
+        }
+      ],
+      "checks": [
+        {
+          "name": "the read fails after the bounded retries",
+          "passed": true,
+          "detail": "expected \"failed\", got \"failed\""
+        },
+        {
+          "name": "the provider code is the shared provider error",
+          "passed": true,
+          "detail": "expected \"PROVIDER_ERROR\", got \"PROVIDER_ERROR\""
+        },
+        {
+          "name": "the adapter made one attempt and two bounded retries",
+          "passed": true,
+          "detail": "expected 3, got 3"
+        },
+        {
+          "name": "the pilot made one attempt",
+          "passed": true,
+          "detail": "expected 1, got 1"
+        },
+        {
+          "name": "the provider saw three reads",
+          "passed": true,
+          "detail": "expected 3, got 3"
+        },
+        {
+          "name": "a rate limit never refreshes the credential",
+          "passed": true,
+          "detail": "expected 0, got 0"
+        },
+        {
+          "name": "every retry is logged with its reason",
+          "passed": true,
+          "detail": "expected 2, got 2"
+        },
+        {
+          "name": "the retry reason is the transient provider status",
+          "passed": true,
+          "detail": "expected true, got true"
+        },
+        {
+          "name": "the failure is returned as the task result",
+          "passed": true,
+          "detail": "expected \"failed\", got \"failed\""
+        },
+        {
+          "name": "the failure carries the provider code",
+          "passed": true,
+          "detail": "expected \"PROVIDER_ERROR\", got \"PROVIDER_ERROR\""
+        }
+      ]
+    },
+    {
+      "name": "auth_expiry_single_refresh",
+      "fault": "unauthorized",
+      "steps": [
+        {
+          "event": "pilot.run_occurrence",
+          "outcome": "blocked",
+          "code": "PROVIDER_AUTH_EXPIRED",
+          "providerAttempts": 2,
+          "detail": "HH resumes: authentication failed, token expired"
+        },
+        {
+          "event": "task_flow.completed",
+          "outcome": "blocked",
+          "safeSummary": "Подключение к внешнему сервису истекло: обновите доступ в настройках интеграции"
+        }
+      ],
+      "checks": [
+        {
+          "name": "the read is blocked",
+          "passed": true,
+          "detail": "expected \"blocked\", got \"blocked\""
+        },
+        {
+          "name": "the auth expiry code is the shared provider code",
+          "passed": true,
+          "detail": "expected \"PROVIDER_AUTH_EXPIRED\", got \"PROVIDER_AUTH_EXPIRED\""
+        },
+        {
+          "name": "the credential was refreshed exactly once",
+          "passed": true,
+          "detail": "expected 1, got 1"
+        },
+        {
+          "name": "the read was attempted once before and once after the refresh",
+          "passed": true,
+          "detail": "expected 2, got 2"
+        },
+        {
+          "name": "the provider saw two reads",
+          "passed": true,
+          "detail": "expected 2, got 2"
+        },
+        {
+          "name": "the task result carries a human summary",
+          "passed": true,
+          "detail": "expected \"string\", got \"string\""
+        },
+        {
+          "name": "the human summary asks to update the access",
+          "passed": true,
+          "detail": "expected to find обновите"
+        }
+      ]
+    },
+    {
+      "name": "invalid_items_not_success",
+      "fault": "invalid_items",
+      "steps": [
+        {
+          "event": "pilot.run_occurrence",
+          "outcome": "failed",
+          "code": "PROVIDER_STATE_UNREADABLE",
+          "itemCount": null
+        }
+      ],
+      "checks": [
+        {
+          "name": "an unreadable payload is a failure",
+          "passed": true,
+          "detail": "expected \"failed\", got \"failed\""
+        },
+        {
+          "name": "the unreadable state code is the shared provider code",
+          "passed": true,
+          "detail": "expected \"PROVIDER_STATE_UNREADABLE\", got \"PROVIDER_STATE_UNREADABLE\""
+        },
+        {
+          "name": "no partial result is published",
+          "passed": true,
+          "detail": "expected null, got null"
+        },
+        {
+          "name": "the provider was read once",
+          "passed": true,
+          "detail": "expected 1, got 1"
+        }
+      ]
+    },
+    {
+      "name": "unreachable_is_failed",
+      "fault": "unreachable",
+      "steps": [
+        {
+          "event": "pilot.run_occurrence",
+          "outcome": "failed",
+          "code": "PROVIDER_UNREACHABLE",
+          "providerAttempts": 1
+        }
+      ],
+      "checks": [
+        {
+          "name": "an unreachable provider is a failure",
+          "passed": true,
+          "detail": "expected \"failed\", got \"failed\""
+        },
+        {
+          "name": "the unreachable code is the shared provider code",
+          "passed": true,
+          "detail": "expected \"PROVIDER_UNREACHABLE\", got \"PROVIDER_UNREACHABLE\""
+        },
+        {
+          "name": "no retry storm is produced",
+          "passed": true,
+          "detail": "expected 1, got 1"
+        },
+        {
+          "name": "the provider was never reached",
+          "passed": true,
+          "detail": "expected 0, got 0"
+        }
+      ]
+    },
+    {
+      "name": "duplicate_occurrence_deduplicated",
+      "fault": "ok",
+      "steps": [
+        {
+          "event": "pilot.run_occurrence.duplicate",
+          "deduplicated": true,
+          "outcome": "result",
+          "userTaskId": "ut-vacancy-8801-2026-10-03T10:00:00Z",
+          "operationId": "op_acancy-8801-2026"
+        }
+      ],
+      "checks": [
+        {
+          "name": "the second delivery is deduplicated",
+          "passed": true,
+          "detail": "expected true, got true"
+        },
+        {
+          "name": "the deduplicated result keeps the same task",
+          "passed": true,
+          "detail": "expected \"ut-vacancy-8801-2026-10-03T10:00:00Z\", got \"ut-vacancy-8801-2026-10-03T10:00:00Z\""
+        },
+        {
+          "name": "the deduplicated result keeps the same operation",
+          "passed": true,
+          "detail": "expected \"op_acancy-8801-2026\", got \"op_acancy-8801-2026\""
+        },
+        {
+          "name": "the provider was read once",
+          "passed": true,
+          "detail": "expected 1, got 1"
+        },
+        {
+          "name": "exactly one task exists",
+          "passed": true,
+          "detail": "expected 1, got 1"
+        },
+        {
+          "name": "exactly one task result exists",
+          "passed": true,
+          "detail": "expected 1, got 1"
+        },
+        {
+          "name": "the pilot ledger holds one entry",
+          "passed": true,
+          "detail": "expected 1, got 1"
+        }
+      ]
+    },
+    {
+      "name": "webhook_not_promised",
+      "fault": "ok",
+      "steps": [
+        {
+          "event": "gate.subscribe",
+          "outcome": "blocked",
+          "code": "WEBHOOK_NOT_SUPPORTED",
+          "webhookSubscriptionId": null,
+          "lifecycleState": null,
+          "supportsWebhook": false
+        },
+        {
+          "event": "gate.poll",
+          "outcome": "failed",
+          "code": "PROVIDER_EVENTS_NOT_SUPPORTED",
+          "events": 0
+        },
+        {
+          "event": "gate.capabilities",
+          "transports": [],
+          "providerEvents": {
+            "webhooks": false,
+            "eventStream": false
+          },
+          "capabilities": [
+            "hh.search_resumes"
+          ]
+        }
+      ],
+      "checks": [
+        {
+          "name": "a webhook subscription is refused",
+          "passed": true,
+          "detail": "expected \"WEBHOOK_NOT_SUPPORTED\", got \"WEBHOOK_NOT_SUPPORTED\""
+        },
+        {
+          "name": "no fake subscription id is issued",
+          "passed": true,
+          "detail": "expected null, got null"
+        },
+        {
+          "name": "no lifecycle state is faked",
+          "passed": true,
+          "detail": "expected null, got null"
+        },
+        {
+          "name": "the adapter declares no webhooks",
+          "passed": true,
+          "detail": "expected false, got false"
+        },
+        {
+          "name": "an event stream is refused",
+          "passed": true,
+          "detail": "expected \"PROVIDER_EVENTS_NOT_SUPPORTED\", got \"PROVIDER_EVENTS_NOT_SUPPORTED\""
+        },
+        {
+          "name": "no empty event list is returned as \"no events\"",
+          "passed": true,
+          "detail": "expected 0, got 0"
+        },
+        {
+          "name": "the adapter declares no event stream",
+          "passed": true,
+          "detail": "expected false, got false"
+        },
+        {
+          "name": "no event transport is advertised",
+          "passed": true,
+          "detail": "expected 0, got 0"
+        },
+        {
+          "name": "the only supported operation is the read",
+          "passed": true,
+          "detail": "expected \"hh.search_resumes\", got \"hh.search_resumes\""
+        }
+      ]
+    },
+    {
+      "name": "task_flow_failure_bounded",
+      "fault": "ok",
+      "steps": [
+        {
+          "0": {
+            "code": "TASK_SUBMIT_FAILED",
+            "attempts": 1
+          },
+          "1": {
+            "code": "TASK_SUBMIT_FAILED",
+            "attempts": 2
+          },
+          "2": {
+            "code": "ADMIT_ATTEMPTS_EXHAUSTED",
+            "attempts": 3
+          },
+          "event": "pilot.run_occurrence.attempts"
+        }
+      ],
+      "checks": [
+        {
+          "name": "the first refusal is reported",
+          "passed": true,
+          "detail": "expected \"TASK_SUBMIT_FAILED\", got \"TASK_SUBMIT_FAILED\""
+        },
+        {
+          "name": "the second refusal is reported",
+          "passed": true,
+          "detail": "expected \"TASK_SUBMIT_FAILED\", got \"TASK_SUBMIT_FAILED\""
+        },
+        {
+          "name": "the attempt limit is enforced",
+          "passed": true,
+          "detail": "expected \"ADMIT_ATTEMPTS_EXHAUSTED\", got \"ADMIT_ATTEMPTS_EXHAUSTED\""
+        },
+        {
+          "name": "no task was submitted",
+          "passed": true,
+          "detail": "expected 0, got 0"
+        }
+      ]
+    },
+    {
+      "name": "geography_required",
+      "fault": "ok",
+      "steps": [
+        {
+          "event": "pilot.run_occurrence.missing_area",
+          "outcome": "failed",
+          "code": "CAPABILITY_PAYLOAD_INVALID"
+        },
+        {
+          "event": "pilot.run_occurrence.non_region_id",
+          "code": "CAPABILITY_PAYLOAD_INVALID"
+        },
+        {
+          "event": "pilot.run_occurrence.unrestricted",
+          "outcome": "result"
+        }
+      ],
+      "checks": [
+        {
+          "name": "a missing geography is refused",
+          "passed": true,
+          "detail": "expected \"CAPABILITY_PAYLOAD_INVALID\", got \"CAPABILITY_PAYLOAD_INVALID\""
+        },
+        {
+          "name": "the refusal carries the domain message",
+          "passed": true,
+          "detail": "expected to find география"
+        },
+        {
+          "name": "the provider was not called",
+          "passed": true,
+          "detail": "expected 0, got 0"
+        },
+        {
+          "name": "a non-region geography is refused",
+          "passed": true,
+          "detail": "expected \"CAPABILITY_PAYLOAD_INVALID\", got \"CAPABILITY_PAYLOAD_INVALID\""
+        },
+        {
+          "name": "the refusal asks for a region id",
+          "passed": true,
+          "detail": "expected to find ID региона"
+        },
+        {
+          "name": "an explicit null means an unrestricted search",
+          "passed": true,
+          "detail": "expected \"result\", got \"result\""
+        },
+        {
+          "name": "the provider was read once",
+          "passed": true,
+          "detail": "expected 1, got 1"
+        }
+      ]
+    },
+    {
+      "name": "live_smoke_not_performed",
+      "fault": "ok",
+      "steps": [
+        {
+          "event": "adapter.request_live_smoke",
+          "attempted": true,
+          "performed": false,
+          "blockedBy": "NO_TEST_ACCOUNT_BINDING",
+          "missingBindings": [
+            "EXTERNAL_TEST_ACCOUNT_TOKEN",
+            "EXTERNAL_TEST_ACCOUNT_ID"
+          ]
+        },
+        {
+          "event": "adapter.request_live_smoke.bindings_present",
+          "performed": false,
+          "blockedBy": "OWNER_DECISION_REQUIRED"
+        }
+      ],
+      "checks": [
+        {
+          "name": "a live smoke is requested",
+          "passed": true,
+          "detail": "expected true, got true"
+        },
+        {
+          "name": "a live smoke is not performed",
+          "passed": true,
+          "detail": "expected false, got false"
+        },
+        {
+          "name": "the missing test account blocks the live smoke",
+          "passed": true,
+          "detail": "expected \"NO_TEST_ACCOUNT_BINDING\", got \"NO_TEST_ACCOUNT_BINDING\""
+        },
+        {
+          "name": "bindings alone are not enough without the owner decision",
+          "passed": true,
+          "detail": "expected false, got false"
+        },
+        {
+          "name": "the owner decision is still required",
+          "passed": true,
+          "detail": "expected \"OWNER_DECISION_REQUIRED\", got \"OWNER_DECISION_REQUIRED\""
+        }
+      ]
+    },
+    {
+      "name": "fidelity",
+      "fault": "ok",
+      "steps": [
+        {
+          "event": "provider.fidelity",
+          "mode": "emulator",
+          "liveSandbox": "unsupported",
+          "readOnly": true,
+          "mutationsSupported": false,
+          "containsPersonalData": false,
+          "liveSmokePerformed": false,
+          "emulatedProperties": [
+            "quota / rate limit (429)",
+            "real auth lifetime and refresh (POST /token)",
+            "real token lifetime",
+            "real resume data"
+          ]
+        }
+      ],
+      "checks": [
+        {
+          "name": "the provider is emulated",
+          "passed": true,
+          "detail": "expected \"emulator\", got \"emulator\""
+        },
+        {
+          "name": "no live sandbox is claimed",
+          "passed": true,
+          "detail": "expected \"unsupported\", got \"unsupported\""
+        },
+        {
+          "name": "the pilot is read-only",
+          "passed": true,
+          "detail": "expected true, got true"
+        },
+        {
+          "name": "no mutation is supported",
+          "passed": true,
+          "detail": "expected false, got false"
+        },
+        {
+          "name": "the sample carries no personal data",
+          "passed": true,
+          "detail": "expected false, got false"
+        },
+        {
+          "name": "a green emulator run is not a live provider test",
+          "passed": true,
+          "detail": "expected false, got false"
+        }
+      ]
+    },
+    {
+      "name": "single_adapter_and_single_cron_source",
+      "fault": "ok",
+      "steps": [
+        {
+          "event": "gate.registry",
+          "providers": [
+            "hh"
+          ],
+          "protocolVersion": "provider-adapter/v1"
+        },
+        {
+          "event": "gate.registry.duplicate",
+          "outcome": "ADAPTER_ALREADY_REGISTERED"
+        },
+        {
+          "event": "pilot.declare_schedule.three_hourly",
+          "cron": "39 0-23/3 * * *",
+          "intervalSource": "domain_cron_declaration"
+        },
+        {
+          "event": "pilot.cron_sources",
+          "files": 1,
+          "cronBuilders": 0
+        }
+      ],
+      "checks": [
+        {
+          "name": "exactly one provider is registered",
+          "passed": true,
+          "detail": "expected 1, got 1"
+        },
+        {
+          "name": "a second adapter implementation is refused",
+          "passed": true,
+          "detail": "expected \"ADAPTER_ALREADY_REGISTERED\", got \"ADAPTER_ALREADY_REGISTERED\""
+        },
+        {
+          "name": "the cron expression is passed through unchanged",
+          "passed": true,
+          "detail": "expected \"39 0-23/3 * * *\", got \"39 0-23/3 * * *\""
+        },
+        {
+          "name": "the interval comes from the domain declaration",
+          "passed": true,
+          "detail": "expected \"domain_cron_declaration\", got \"domain_cron_declaration\""
+        },
+        {
+          "name": "the pilot holds no cron generator of its own",
+          "passed": true,
+          "detail": "expected 0, got 0"
+        }
+      ]
+    }
+  ],
+  "acceptance": {
+    "AC-153": "hourly cold search is mapped onto schedule occurrences but is not production enabled; the provider webhook and event stream are not promised; the integration data returns as the terminal result of the common task flow",
+    "AC-154": "provider operationId, http status, bounded retries, auth refresh, occurrence/schedule/task/run correlation and the reason of every transition are visible; raw provider payload and credential values stay out of the log",
+    "AC-30": "the HH/CRM test-account mode is not fixed: the live smoke is requested and not performed, blocked by the missing bindings and then by the missing owner decision"
+  },
+  "fidelity": {
+    "provider": "hh",
+    "mode": "emulator",
+    "liveSandbox": "unsupported",
+    "readOnly": true,
+    "mutationsSupported": false,
+    "liveSmokePerformed": false,
+    "note": "a green emulator run is not a live provider test and not a production enablement"
+  }
+}

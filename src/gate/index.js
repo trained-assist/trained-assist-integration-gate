@@ -203,6 +203,7 @@ function createIntegrationGate({
       receipt: result.receipt,
       externalOperationRef: result.externalOperationRef,
       eventId: result.eventId,
+      attempts: result.attempts ?? null,
       retryAllowed: outcome === 'outcome_unknown' ? ledger.canRetry(entry.operationId) : true,
     };
   }
@@ -245,6 +246,10 @@ function createIntegrationGate({
    * Подписка на события провайдера. Поддержка webhook не предполагается для
    * каждого провайдера: если провайдер не поддерживает webhook, остаётся
    * polling (capabilities объявляют только реально поддерживаемое).
+   *
+   * Адаптер, у которого нет `subscribe` или который объявляет
+   * `events.webhooks.supported === false`, не получает фиктивной подписки: Gate
+   * отказывает до обращения к провайдеру и не создаёт секрет подписи.
    */
   async function subscribe({ integrationBindingId, eventType, webhookUrl = null, profileId = null } = {}) {
     let binding;
@@ -256,6 +261,30 @@ function createIntegrationGate({
     const adapter = registry.get(binding.binding.provider);
     if (!adapter) {
       return { outcome: 'blocked', code: 'ADAPTER_NOT_REGISTERED', detail: `no adapter implementation for provider "${binding.binding.provider}"`, webhookSubscriptionId: null, lifecycleState: null };
+    }
+    if (adapter.events && adapter.events.webhooks && adapter.events.webhooks.supported === false) {
+      resolvedLog.write('subscription.unsupported', {
+        integrationBindingId,
+        provider: adapter.provider,
+        eventType,
+        profileId,
+        from: 'requested',
+        to: 'blocked',
+        reasonCode: 'WEBHOOK_NOT_SUPPORTED',
+        detail: adapter.events.webhooks.reason || 'the provider ships no webhook API',
+      });
+      return {
+        outcome: 'blocked',
+        code: 'WEBHOOK_NOT_SUPPORTED',
+        detail: adapter.events.webhooks.reason || 'the provider ships no webhook API',
+        webhookSubscriptionId: null,
+        lifecycleState: null,
+        supportsWebhook: false,
+        transports: [],
+      };
+    }
+    if (typeof adapter.subscribe !== 'function') {
+      return { outcome: 'blocked', code: 'WEBHOOK_NOT_SUPPORTED', detail: 'the adapter declares no subscription route', webhookSubscriptionId: null, lifecycleState: null, supportsWebhook: false, transports: [] };
     }
 
     const result = await adapter.subscribe({ bindingRef: integrationBindingId, eventType, webhookUrl });
@@ -327,7 +356,12 @@ function createIntegrationGate({
     }
 
     const adapter = registry.get(resolver.read(entry.integrationBindingId)?.provider || null);
-    const result = adapter ? await adapter.reconcile({ operationId: entry.operationId }) : { outcome: 'outcome_unknown' };
+    // У провайдера без мутаций сверять нечего: адаптер не реализует reconcile,
+    // и Gate не делает фиктивный вызов провайдера. Локальный леджер — единственный
+    // источник состояния, и он возвращается как есть.
+    const result = adapter && typeof adapter.reconcile === 'function'
+      ? await adapter.reconcile({ operationId: entry.operationId })
+      : { outcome: 'outcome_unknown', adapterReconcile: 'not_supported' };
 
     if (result.outcome === 'result') {
       ledger.recordOutcome(entry.operationId, 'result', {
@@ -349,12 +383,17 @@ function createIntegrationGate({
       receipt: reconciled.entry.receipt,
       externalOperationRef: reconciled.entry.externalOperationRef,
       eventId: reconciled.entry.callback ? reconciled.entry.callback.eventId : null,
+      adapterReconcile: result.adapterReconcile || 'provider',
     };
   }
 
   /**
    * Polling-маршрут: тот же scope, что у read и webhook — principal из binding,
    * чужой binding отклоняется до обращения к провайдеру.
+   *
+   * Поток событий — тоже объявляемый транспорт: если у провайдера его нет,
+   * Gate не возвращает пустой список событий (иначе «нет событий» стало бы
+   * недоказуемым), а отказывает с `PROVIDER_EVENTS_NOT_SUPPORTED`.
    */
   async function poll({ integrationBindingId, cursor = 0, limit = 20, profileId = null } = {}) {
     let binding;
@@ -366,6 +405,28 @@ function createIntegrationGate({
     const adapter = registry.get(binding.binding.provider);
     if (!adapter) {
       return { outcome: 'blocked', code: 'ADAPTER_NOT_REGISTERED', detail: `no adapter implementation for provider "${binding.binding.provider}"`, events: [], nextCursor: Number(cursor), hasMore: false };
+    }
+    if (adapter.events && adapter.events.eventStream && adapter.events.eventStream.supported === false) {
+      resolvedLog.write('poll.unsupported', {
+        integrationBindingId,
+        provider: adapter.provider,
+        profileId,
+        from: 'requested',
+        to: 'blocked',
+        reasonCode: 'PROVIDER_EVENTS_NOT_SUPPORTED',
+        detail: adapter.events.eventStream.reason || 'the provider ships no event stream',
+      });
+      return {
+        outcome: 'failed',
+        code: 'PROVIDER_EVENTS_NOT_SUPPORTED',
+        detail: adapter.events.eventStream.reason || 'the provider ships no event stream',
+        events: [],
+        nextCursor: Number(cursor),
+        hasMore: false,
+      };
+    }
+    if (typeof adapter.poll !== 'function') {
+      return { outcome: 'failed', code: 'PROVIDER_EVENTS_NOT_SUPPORTED', detail: 'the adapter declares no event stream', events: [], nextCursor: Number(cursor), hasMore: false };
     }
     const result = await adapter.poll({ cursor, limit });
     return {
@@ -472,6 +533,16 @@ function createIntegrationGate({
 
     const expired = Boolean(record.expiresAt && new Date(record.expiresAt).getTime() <= now().getTime());
     let authHealth = expired ? 'expired' : 'ready';
+    const events = adapter.events || null;
+    // Транспорты событий объявляет адаптер, а не Gate: у HH нет ни вебхуков, ни
+    // потока событий, и пустой список транспортов — это честный ответ, а не
+    // «ничего не поддерживается по ошибке».
+    const transports = events
+      ? [
+          events.webhooks && events.webhooks.supported ? 'webhook' : null,
+          events.eventStream && events.eventStream.supported ? 'poll' : null,
+        ].filter(Boolean)
+      : ['poll'];
 
     if (probe && !expired) {
       if (!readProbePayload) {
@@ -506,6 +577,7 @@ function createIntegrationGate({
       profileId,
       authHealth,
       hasWebhook: Boolean(subscriptionStore.findByBinding(integrationBindingId)),
+      transports,
       from: 'readiness_request',
       to: authHealth,
       reasonCode: 'READINESS_REPORTED',
@@ -522,7 +594,8 @@ function createIntegrationGate({
         enabled: !expired && authHealth === 'ready' && (!cap.scope || (record.scopes || []).includes(cap.scope)),
       })),
       authHealth,
-      transports: subscriptionStore.findByBinding(integrationBindingId) ? ['webhook', 'poll'] : ['poll'],
+      providerEvents: events,
+      transports,
     };
   }
 

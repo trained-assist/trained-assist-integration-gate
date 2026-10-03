@@ -23,6 +23,8 @@ const fs = require('fs');
 const http = require('http');
 const path = require('path');
 
+const { requestLiveSmoke: liveSmokeRequest } = require('../contract/live-smoke');
+
 const PROVIDER_NAME = 'hh-sandbox';
 const STORE_DIR = 'operations';
 const DEFAULT_DELAY_MS = 900;
@@ -454,13 +456,12 @@ function createProviderEmulator({ root, now = () => new Date(), fault = 'success
     },
   };
 
-  function requestLiveSmoke({ bindingNames = [] } = {}) {
-    const missing = REQUIRED_LIVE_BINDINGS.filter(name => !bindingNames.includes(name));
-    if (missing.length > 0) {
-      return { attempted: true, performed: false, blockedBy: 'NO_TEST_ACCOUNT_BINDING', missingBindings: missing, next: 'declare these names in Secret Manager / GitHub Actions secrets, then run the read-only live smoke with a sandbox-owned account' };
-    }
-    return { attempted: true, performed: false, blockedBy: 'LIVE_PROVIDER_CLIENT_NOT_BUILT', missingBindings: [], next: 'the emulator is the accepted evidence for this stage; a live client needs the owner decision on the first real domain (epic #22)' };
-  }
+  const requestLiveSmoke = liveSmokeRequest({
+    requiredBindings: REQUIRED_LIVE_BINDINGS,
+    blockedByWhenPresent: 'LIVE_PROVIDER_CLIENT_NOT_BUILT',
+    nextBlocked: 'declare these names in Secret Manager / GitHub Actions secrets, then run the read-only live smoke with a sandbox-owned account',
+    nextDecision: 'the emulator is the accepted evidence for this stage; a live client needs the owner decision on the first real domain (epic #22)',
+  });
 
   return {
     root,
