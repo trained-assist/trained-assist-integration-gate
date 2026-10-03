@@ -1,0 +1,1617 @@
+This file is a merged representation of a subset of the codebase, containing specifically included files and files not matching ignore patterns, combined into a single document by Repomix.
+The content has been processed where empty lines have been removed, line numbers have been added, content has been compressed (code blocks are separated by ⋮---- delimiter).
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Only files matching these patterns are included: **/*.js, **/*.mjs, **/*.cjs, **/*.ts, **/*.py, **/*.sh, **/*.yml, **/*.yaml, README.md, package.json, **/package.json, .repo-context/repomix.config.json
+- Files matching these patterns are excluded: **/node_modules/**, **/dist/**, **/coverage/**, **/logs/**, **/*.log, **/.env*, **/*secrets*, **/*credentials*, **/*.pem, **/*.key, **/package-lock.json, .repo-context/output/**, **/results.json, **/pgdata/**, **/.wrangler/**
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Empty lines have been removed from all files
+- Line numbers have been added to the beginning of each line
+- Content has been compressed - code blocks are separated by ⋮---- delimiter
+</notes>
+
+</file_summary>
+
+<directory_structure>
+.github/
+  workflows/
+    ci-fix-cleanup.yml
+    ci.yml
+    pr-autofix.yml
+    repo-context.yml
+.repo-context/
+  repomix.config.json
+scripts/
+  sandbox/
+    hh-pilot-sandbox.cjs
+    integration-gate-sandbox.cjs
+  check-syntax.js
+src/
+  adapters/
+    hh-adapter.js
+    hh-sandbox-adapter.js
+    http-client.js
+  contract/
+    events.js
+    live-smoke.js
+    outcomes.js
+    version.js
+  gate/
+    adapter-registry.js
+    bindings.js
+    event-outbox.js
+    index.js
+    operation-ledger.js
+    subscription-store.js
+    task-port.js
+    webhook-inbox.js
+    webhook-signature.js
+  http/
+    server.js
+  pilot/
+    cold-search.js
+  provider-emulator/
+    hh-api.js
+    index.js
+tests/
+  hh-pilot.test.js
+  integration-gate.test.js
+tools/
+  repo-context/
+    map.py
+    package.json
+package.json
+README.md
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path=".github/workflows/ci-fix-cleanup.yml">
+# Managed by the trained-assist-engineering pr-autofix service.
+# Cleanup for trained-assist/trained-assist-integration-gate — change the service registration, not this file.
+# Delegates to the pinned pr-autofix cleanup callable when a PR closes.
+name: CI Fix Cleanup
+on:
+  pull_request:
+    types: [closed]
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  cleanup:
+    uses: trained-assist/pr-autofix/.github/workflows/ci-fix-cleanup.yml@v1.7.8
+    secrets:
+      gh_token: ${{ secrets.AUTOFIX_PAT || github.token }}
+</file>
+
+<file path=".github/workflows/ci.yml">
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax check
+        run: npm run check
+      - name: Contract and acceptance tests
+        run: npm test
+      - name: Sandbox scenario (stage I08)
+        run: npm run sandbox
+      - name: Sandbox scenario P26 (HH pilot)
+        run: npm run sandbox:p26
+      - name: Evidence is reproducible
+        run: npm run evidence:verify
+      - name: Evidence P26 is reproducible
+        run: npm run evidence:verify:p26
+</file>
+
+<file path=".github/workflows/pr-autofix.yml">
+# Managed by the trained-assist-engineering pr-autofix service.
+# Installed for trained-assist/trained-assist-integration-gate — change the service registration, not this file.
+#
+# Trigger: the repository CI workflow named below completes. The pinned
+# callable only acts on a pull-request CI run that failed, and never on an
+# already-fix branch (fix/ci-*), so it cannot loop on its own fixes.
+name: PR Autofix
+on:
+  workflow_run:
+    workflows: ["Repository context"]
+    types: [completed]
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  autofix:
+    if: >-
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.pull_requests[0] != null &&
+      !startsWith(github.event.workflow_run.head_branch, 'fix/ci-')
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: trained-assist/pr-autofix/.github/workflows/autofix-callable.yml@v1.7.8
+    with:
+      pr_number: ${{ github.event.workflow_run.pull_requests[0].number }}
+      original_branch: ${{ github.event.workflow_run.head_branch }}
+      run_id: ${{ github.event.workflow_run.id }}
+    secrets:
+      llm_ladder_token: ${{ secrets.LLM_LADDER_TOKEN }}
+      gh_token: ${{ secrets.AUTOFIX_PAT || github.token }}
+</file>
+
+<file path=".github/workflows/repo-context.yml">
+name: Repository context
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  context:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: tools/repo-context/package-lock.json
+      - name: Install pinned packer only (no application build)
+        run: npm ci --prefix tools/repo-context --ignore-scripts
+      - name: Generate structural pack and bounded map
+        run: |
+          mkdir -p .repo-context/output
+          tools/repo-context/node_modules/.bin/repomix --config .repo-context/repomix.config.json
+          python3 tools/repo-context/map.py
+      - name: Upload source-pinned context
+        uses: actions/upload-artifact@v4
+        with:
+          name: repo-context-${{ github.sha }}
+          path: .repo-context/output/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Show entry point
+        run: cat .repo-context/output/REPO-MAP.md >> "$GITHUB_STEP_SUMMARY"
+  publish-main:
+    needs: context
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: repo-context-publish
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: repo-context-${{ github.sha }}
+          path: context
+      - name: Publish generated files to separate branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_REPO: ${{ github.repository }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          export GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_KEY_0=http.https://github.com/.extraheader
+          export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          remote="https://github.com/$SOURCE_REPO.git"
+          latest=$(git ls-remote "$remote" refs/heads/main | cut -f1)
+          if [ "$latest" != "$SOURCE_SHA" ]; then
+            echo 'Source is no longer main HEAD; skip stale publication.'
+            exit 0
+          fi
+          cd context
+          git init -b repo-context
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git remote add origin "$remote"
+          old=$(git ls-remote origin refs/heads/repo-context | cut -f1)
+          git add REPO-MAP.md repo-compressed.xml manifest.json
+          git commit -m "context for $SOURCE_SHA"
+          git push --force-with-lease="refs/heads/repo-context:$old" origin HEAD:refs/heads/repo-context
+</file>
+
+<file path=".repo-context/repomix.config.json">
+{
+  "input": { "maxFileSize": 200000 },
+  "output": {
+    "filePath": ".repo-context/output/repo-compressed.xml",
+    "style": "xml",
+    "compress": true,
+    "showLineNumbers": true,
+    "removeEmptyLines": true,
+    "git": { "sortByChanges": false, "includeDiffs": false, "includeLogs": false }
+  },
+  "include": ["**/*.js", "**/*.mjs", "**/*.cjs", "**/*.ts", "**/*.py", "**/*.sh", "**/*.yml", "**/*.yaml", "README.md", "package.json", "**/package.json", ".repo-context/repomix.config.json"],
+  "ignore": {
+    "useGitignore": true,
+    "useDefaultPatterns": true,
+    "customPatterns": ["**/node_modules/**", "**/dist/**", "**/coverage/**", "**/logs/**", "**/*.log", "**/.env*", "**/*secrets*", "**/*credentials*", "**/*.pem", "**/*.key", "**/package-lock.json", ".repo-context/output/**", "**/results.json", "**/pgdata/**", "**/.wrangler/**"]
+  },
+  "security": { "enableSecurityCheck": true }
+}
+</file>
+
+<file path="scripts/sandbox/hh-pilot-sandbox.cjs">
+// Сценарий этапа I08 для карточки P26 (эпик E6 #22): реалистичный адаптер HH и
+// существующий cron холодного поиска → срабатывания расписания.
+//
+// Одна команда: setup → run → evidence → teardown. Песочница живёт в
+// `.sandbox/p26-<pid>/` (в .gitignore), наружу не ходит: только loopback. Часы
+// виртуальные, поэтому transcript воспроизводим побайтово — это проверяет
+// `npm run evidence:verify:p26` в CI.
+//
+// Запуск:
+//   node scripts/sandbox/hh-pilot-sandbox.cjs            # пишет evidence
+//   node scripts/sandbox/hh-pilot-sandbox.cjs --verify   # сверка с закоммиченным transcript
+⋮----
+function now()
+function advance(ms)
+⋮----
+function scenario(name, fault, fn)
+⋮----
+function step(event, fields)
+⋮----
+function check(name, passed, detail)
+⋮----
+function assertEqual(name, actual, expected)
+⋮----
+function assertIncludes(name, haystack, needle)
+⋮----
+function makeRoot(name)
+⋮----
+async function teardownAll()
+⋮----
+// Декларации существующего cron холодного поиска: те же значения, что выдаёт
+// доменный `intervalToCron` (trained-assist-hh-skill, hh-cold-search-cron.js).
+⋮----
+/** Общий task flow песочницы: тот же контракт, что у задачи расписания P22. */
+function createTaskFlowRecorder()
+⋮----
+refuseNextSubmit()
+async submit(input)
+async complete(input)
+⋮----
+/**
+ * Изолированный стек пилота: фасад Gate на loopback, эмулятор HH в форме
+ * настоящего API на loopback, один адаптер, синтетическая выдача и общий
+ * task flow-рекордер.
+ */
+async function buildStack(
+⋮----
+// Приватный артефакт провайдера пишет хост: сырые резюме не идут в лог.
+recordArtifact: params
+⋮----
+refreshAccessToken: async () =>
+⋮----
+function occurrenceFor(declaration, at)
+⋮----
+async function run()
+⋮----
+// 1. Почасовая декларация маппится на запрос расписания без пересчёта cron.
+⋮----
+// 2. Запрос на прод отказывает: почасовая поддержка не выдаётся за production enabled.
+⋮----
+// 3. Occurrence → задача через общий task flow → поиск → результат задачи.
+⋮----
+// 4. 429: ограниченные повторы, затем failed; выдача не обновляется.
+⋮----
+// 5. 401: ровно одна попытка обновить выдачу, затем blocked с человеческим текстом.
+⋮----
+// 6. 200 без читаемой полезной нагрузки — это не успех.
+⋮----
+// 7. Недоступный провайдер — failed, а не неизвестность, и без шторма повторов.
+⋮----
+// 8. Повторная доставка того же occurrence: один запрос, одна задача, один результат.
+⋮----
+// 9. Неподдержанный webhook и поток событий не обещаны.
+⋮----
+// 10. Отказ общего task flow ограничен попытками.
+⋮----
+// 11. География — часть контракта провайдера: молча расширить поиск нельзя.
+⋮----
+// 12. Живой smoke не выполняется: режим test account не зафиксирован (AC-30).
+⋮----
+// 13. Что эмулировано и что требует живого провайдера.
+⋮----
+// 14. Границы: одна реализация адаптера и один источник cron-выражения.
+⋮----
+function renderTranscript(results)
+⋮----
+function sanitizeTranscript(transcript)
+⋮----
+function writeEvidence(outDir, transcript)
+⋮----
+function main()
+</file>
+
+<file path="scripts/sandbox/integration-gate-sandbox.cjs">
+// Сценарий этапа I08 для External Integration Gate (карточка P25, эпик E6 #22).
+//
+// Одна команда: setup → run → evidence → teardown. Песочница живёт в
+// `.sandbox/p25-<pid>/` (в .gitignore), наружу не ходит: только loopback.
+// Часы виртуальные, поэтому transcript воспроизводим побайтово — это проверяет
+// `npm run evidence:verify` в CI.
+//
+// Запуск:
+//   node scripts/sandbox/integration-gate-sandbox.mjs            # пишет evidence
+//   node scripts/sandbox/integration-gate-sandbox.mjs --verify   # сверка с закоммиченным transcript
+⋮----
+function now()
+function advance(ms)
+⋮----
+function scenario(name, fault, fn)
+⋮----
+function step(event, fields)
+⋮----
+function check(name, passed, detail)
+⋮----
+function assertEqual(name, actual, expected)
+⋮----
+function assertIncludes(name, haystack, needle)
+⋮----
+function makeRoot(name)
+⋮----
+async function teardownAll()
+⋮----
+/**
+ * Изолированный стек этапа: фасад Gate на loopback, эмулятор провайдера на
+ * loopback, один адаптер, синтетические binding'и и подписка с секретом подписи.
+ */
+async function buildStack(
+⋮----
+function waitFor(predicate,
+⋮----
+const tick = () =>
+⋮----
+/**
+ * Дождаться, пока все доставленные провайдером обратные вызовы будут приняты
+ * inbox'ом, и только затем дождаться завершения dispatch: иначе проверка outbox
+ * гонялась с асинхронной доставкой.
+ */
+async function settle(gate, emulator, options =
+⋮----
+async function run()
+⋮----
+// 1. success: read + mutation, один обратный вызов, эффект один.
+⋮----
+// 2. error: провайдер отклоняет запись, эффекта нет.
+⋮----
+// 3. delay: таймаут после отправки = unknown; повтор только после reconcile.
+⋮----
+// Квитанция «догоняет» позже дедлайна: сначала ждём её у провайдера, и
+// только потом сверяем — reconcile обязан вернуть подтверждённый исход.
+⋮----
+// Поздний обратный вызов приходит после таймаута клиента и тоже сверяет исход.
+⋮----
+// 4. auth_expiry: истёкшая выдача — это blocked с человеческим текстом.
+⋮----
+// 5. duplicate_callback: три доставки, один эффект, одно событие.
+⋮----
+// 6. unreachable: сервис не отвечает — это failed, а не неизвестность.
+⋮----
+// 7. expired_binding: истёкший binding отклоняется до обращения к провайдеру.
+⋮----
+// 8. cross_profile_scope: read/poll/webhook сохраняют scope.
+⋮----
+// 9. webhook_lifecycle: подпись → durable receipt → дедуп → быстрый ACK → dispatch.
+⋮----
+// Подпись пересчитывается с устаревшим временем: проверяется именно окно,
+// а не целостность подписи.
+⋮----
+// 10. no_second_task: callback существующей операции обновляет её состояние.
+⋮----
+// 11. single_adapter_implementation: второй реализации адаптера не существует.
+⋮----
+// 12. live_smoke: живой test account не выдан — заявка честно заблокирована.
+⋮----
+// 13. fidelity: что эмулировано и что требует живого провайдера.
+⋮----
+function renderTranscript(results)
+⋮----
+function sanitizeTranscript(transcript)
+⋮----
+function writeEvidence(outDir, transcript)
+⋮----
+function main()
+</file>
+
+<file path="scripts/check-syntax.js">
+// Синтаксис всех модулей репозитория: дешёвая проверка до тестов и сценария.
+</file>
+
+<file path="src/adapters/hh-adapter.js">
+// Реалистичный адаптер HH — первый реальный домен пилота (карточка P26, эпик
+// E6 #22, этап I08).
+//
+// Адаптер повторяет транспорт существующего доменного кода
+// (trained-assist-hh-skill, `hh-cold-search-transport.js`): тот же запрос
+// `GET /resumes` с `text`/`area`/`page`/`per_page`/`order_by`, те же заголовки
+// `Authorization: Bearer`, `User-Agent` и `HH-User-Agent`, то же ограничение
+// повторов и то же правило географии. Бизнес-правила здесь не живут: ни
+// промптов, ни порогов, ни стадий воронки.
+//
+// Что адаптер объявляет честно:
+//   - поддерживается только read (`hh.search_resumes`);
+//   - webhook у HH нет → адаптер не реализует `subscribe` и не создаёт фиктивной
+//     подписки (Gate отвечает `WEBHOOK_NOT_SUPPORTED`);
+//   - потока событий у HH нет → `poll` не реализуется (`PROVIDER_EVENTS_NOT_SUPPORTED`);
+//   - мутаций нет → `reconcile` не реализуется: сверять нечего, неизвестного
+//     исхода у чтения не бывает.
+//
+// Таймаут чтения — это `failed`, а не `outcome_unknown`: GET безопасно
+// повторить, эффекта не было. `outcome_unknown` остаётся только для мутаций.
+⋮----
+// HH не имеет ни вебхуков, ни потока событий: объявляем это в манифесте, чтобы
+// Gate не обещал транспорт, которого у провайдера нет.
+⋮----
+/**
+ * География — часть контракта провайдера, а не вкусовщина: молча расширить поиск
+ * или молча сузить его до Москвы одинаково обманчиво. Текст ошибки тот же, что у
+ * доменного транспорта, чтобы домен не получил второе сообщение.
+ */
+function resolveSearchAreas(area)
+⋮----
+// `undefined` — география не задана вовсе: это ошибка. `null` — явный поиск
+// без ограничения, `[]` — то же самое в форме списка.
+⋮----
+function normalizeRead(
+⋮----
+/**
+ * @param {object} options
+ * @param {string} options.baseUrl база API провайдера (эмулятора или настоящего)
+ * @param {object} [options.log] общий event log Gate
+ * @param {number} [options.timeoutMs] дедлайн вызова
+ * @param {number} [options.maxRetries] ограничение повторов на 429/5xx
+ * @param {number} [options.retryDelayMs] пауза между повторами (в песочнице 0)
+ * @param {Function} [options.sleep] подмена сна (виртуальные часы)
+ * @param {Function} [options.refreshAccessToken] обновление выдачи у хоста
+ * @param {Function} [options.recordArtifact] запись приватного артефакта провайдера
+ * @param {Function} [options.fetchImpl] подмена HTTP-клиента (тесты)
+ */
+function createHhAdapter({
+  baseUrl,
+  log,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+  maxRetries = DEFAULT_MAX_RETRIES,
+  retryDelayMs = DEFAULT_RETRY_DELAY_MS,
+  sleep = ms => new Promise(resolve => setTimeout(resolve, ms)),
+  refreshAccessToken = null,
+  recordArtifact = null,
+  fetchImpl,
+} =
+⋮----
+function headersFor(token)
+⋮----
+async function readOnce(
+⋮----
+/**
+   * Один поиск резюме: ограниченные повторы на 429/5xx и ровно одна попытка
+   * обновить выдачу при 401/403. Повторы логируются с причиной, чтобы шторм из
+   * повторов не выглядел как один вызов.
+   */
+async function searchResumes(
+⋮----
+async function invoke(
+</file>
+
+<file path="src/adapters/hh-sandbox-adapter.js">
+// Реализация адаптера провайдера hh-sandbox: ровно одна на провайдера (AC-152).
+//
+// Адаптер только переводит вызов в транспорт провайдера и нормализует ответ в
+// исходы контракта C10. Бизнес-правила здесь не живут: ни промптов, ни порогов
+// решений, ни стадий воронки — это остаётся в доменном репозитории.
+//
+// Транспорт один — HTTP к провайдеру (`http-client.js`, общий для всех
+// адаптеров). Второй транспортной реализации нет и не заводится: фасад Gate и
+// адаптер не дублируют друг друга.
+⋮----
+// Эмулятор провайдера действительно умеет и webhook, и поток событий, поэтому
+// объявляет оба транспорта (см. `events` в манифесте адаптера).
+⋮----
+// Живая проверка этого провайдера невозможна: эмулятор — единственный источник
+// свидетельства на этапе I08, пока владелец не зафиксирует режим test account.
+⋮----
+function postJson(baseUrl, pathname, body,
+⋮----
+function getJson(baseUrl, pathname,
+⋮----
+/**
+ * Нормализация ответа провайдера в исходы контракта C10.
+ *
+ * `outcome_unknown` — только таймаут после отправки: эффект мог произойти.
+ * Недоступность и ошибка сервиса — это `failed`, а не неизвестность.
+ */
+function normalize(
+⋮----
+/**
+ * @param {object} options
+ * @param {string} options.baseUrl база API провайдера (эмулятора)
+ * @param {object} [options.log] общий event log Gate
+ * @param {number} [options.timeoutMs] дедлайн вызова
+ * @param {Function} [options.fetchImpl] подмена HTTP-клиента (тесты)
+ */
+function createProviderAdapter(
+⋮----
+async function invoke(
+⋮----
+async function subscribe(
+⋮----
+async function unsubscribe(
+⋮----
+async function poll(
+⋮----
+async function reconcile(
+</file>
+
+<file path="src/adapters/http-client.js">
+// HTTP-транспорт адаптеров Gate: единственная реализация для всех провайдеров.
+//
+// Инвариант AC-152 касается не только адаптеров, но и транспорта: у Gate один
+// HTTP-клиент, а не копия на каждый провайдера. Адаптер отвечает только за
+// адрес, заголовки и нормализацию ответа.
+//
+// Различие таймаута и недоступности различается здесь и возвращается полем
+// `transportError`, потому что решение о нём принадлежит адаптеру: для мутации
+// таймаут после отправки — это `outcome_unknown`, для чтения (GET) — обычный
+// `failed`, который безопасно повторить.
+⋮----
+function buildUrl(baseUrl, pathname, query)
+⋮----
+function nonJsonBody()
+⋮----
+/**
+ * Один JSON-запрос к провайдеру.
+ *
+ * @param {object} options
+ * @param {string} options.baseUrl база API провайдера
+ * @param {string} [options.method]
+ * @param {string} options.pathname путь без query
+ * @param {object} [options.query] параметры query
+ * @param {object} [options.body] тело запроса (для POST/PUT)
+ * @param {object} [options.headers] заголовки; вызывающий добавляет авторизацию
+ * @param {number} [options.timeoutMs] дедлайн клиента
+ * @param {Function} [options.fetchImpl] подмена HTTP-клиента (тесты)
+ * @returns {Promise<{status: number, body: object|null, transportError: null|'timeout'|'unreachable'}>}
+ */
+async function requestJson(
+</file>
+
+<file path="src/contract/events.js">
+// Общий event log Gate: второй формат лога этапа не заводим.
+//
+// Формат записи повторяет P15 (software-engineering-playbooks, PR #103):
+// `log.write(event, { from, to, reasonCode, detail, ...ids })`. Здесь добавлено
+// только то, что требует observability-контракт (C12): source/release/
+// environment, scope, correlation, replyContext, safeSummary/privateDetailsRef и
+// класс хранения (TTL). Значения секретов и сырой payload провайдера в запись
+// не попадают: сырые данные уходят только в privateDetailsRef.
+⋮----
+// Ключи, которые никогда не пишутся в общий лог (INV-12).
+⋮----
+function isSensitiveKey(key)
+⋮----
+/** Вычищает чувствительные ключи из полей события. */
+function sanitizeFields(fields)
+⋮----
+function appendLine(file, line)
+⋮----
+function readLines(file)
+⋮----
+/**
+ * @param {object} options
+ * @param {string} options.file изолированный файл лога (production-логи неприкосновенны)
+ * @param {() => Date} [options.now]
+ * @param {(entry: object) => void} [options.sink] дополнительный durable sink
+ */
+function createEventLog(
+⋮----
+function write(event, fields =
+⋮----
+function error(
+⋮----
+entries: ()
+close: ()
+</file>
+
+<file path="src/contract/live-smoke.js">
+// Заявка на живой smoke: одна реализация на репозиторий (карточка P26).
+//
+// Пилот не может объявить прод-настройку включённой, пока нет решения владельца о
+// read-only test-account режиме (AC-30). Здесь фиксируется, что именно нужно для
+// живой проверки и почему она не выполнена: имён переменных достаточно, значения
+// секретов в репозитории не бывает.
+⋮----
+/**
+ * @param {object} options
+ * @param {string[]} options.requiredBindings имена переменных, без значений
+ * @param {string} options.blockedByWhenPresent причина, если binding'ы есть, а решения владельца нет
+ * @param {string} options.nextBlocked что делать, когда binding'ов нет
+ * @param {string} options.nextDecision что делать, когда binding'ы есть
+ */
+function requestLiveSmoke(
+</file>
+
+<file path="src/contract/outcomes.js">
+// Нормализованные исходы и коды ошибок External Integration Gate.
+//
+// Словарь один и общий с P15: исходы внешнего сервиса и коды эффекта не
+// переизобретаются. Добавлены только коды, которые принадлежат самому Gate
+// (binding, подпись обратного вызова, повтор до reconcile, реестр адаптеров).
+//
+// Исходы (C10): accepted / result / failed / outcome_unknown / blocked.
+// `outcome_unknown` — таймаут после отправки: эффект мог произойти, поэтому
+// повтор запрещён до reconcile (INV-07, AC-151).
+⋮----
+// Коды внешнего сервиса — из P15 (src/mcp-sandbox/errors.js), без изменений.
+⋮----
+// Коды эффекта и обратного вызова — из P15.
+⋮----
+// Коды, принадлежащие Gate.
+⋮----
+// Истёкшая выдача намеренно НЕ код отказа для модели: это `blocked` с
+// человеческим текстом (решение P15). Код остаётся только в логе и в
+// readiness, чтобы оператор видел причину без машинного шума.
+⋮----
+/**
+ * Человекочитаемая причина для `blocked` (P15: истёкшая выдача — это
+ * «подключите/обновите», а не машинный код для модели).
+ */
+function blockedSummary(reason)
+</file>
+
+<file path="src/contract/version.js">
+// Версии контракта External Integration Gate (карточка P25, эпик E6 #22, этап I08).
+//
+// Второго словаря версий не заводим: имена и смысл исходов повторяют P15
+// (software-engineering-playbooks, PR #103) и контракт C10
+// (trained-agent-architecture, contracts/README.md). Здесь только то, что
+// принадлежит выделяемому Gate: версия контракта операций и версия протокола
+// адаптера провайдера.
+⋮----
+// Поддерживаемые версии протокола адаптера. Реестр отказывает адаптеру, чья
+// версия не входит в список: две несовместимые реализации одного провайдера
+// не могут сосуществовать (AC-152).
+</file>
+
+<file path="src/gate/adapter-registry.js">
+// Реестр адаптеров провайдеров Gate.
+//
+// Инвариант AC-152: у провайдера есть ровно одна реализация адаптера. Вторая
+// реализация того же провайдера не регистрируется — реестр отказывает, а не
+// молча подменяет первую. Бизнес-правила здесь не живут: адаптер только
+// переводит вызов в транспорт провайдера и нормализует ответ.
+⋮----
+/**
+ * @param {object} options
+ * @param {object} [options.log] общий event log Gate
+ */
+function createAdapterRegistry(
+⋮----
+/**
+   * @param {object} adapter манифест адаптера
+   * @param {string} adapter.provider имя провайдера
+   * @param {string} adapter.protocolVersion версия протокола адаптера
+   * @param {Array<{name: string, kind: 'read'|'mutation', scope: string}>} adapter.capabilities
+   */
+function register(adapter)
+⋮----
+function get(provider)
+⋮----
+function list()
+⋮----
+/** Структурная проверка AC-152: реализация одна. */
+</file>
+
+<file path="src/gate/bindings.js">
+// Credential bindings: principal берётся из binding, а не от модели (AC-252).
+//
+// Значение binding'а не приходит ни из аргументов вызывающего, ни из окружения
+// процесса: его читает host-owned резолвер из изолированного store — ровно так,
+// как Credential Broker (эпик #21, #30) читал бы его из Secret Manager. В
+// песочнице там синтетическая фикстура: доказательство канала, а не секрет.
+//
+// Файл значения называется хешем ref, права 0600. В лог и в отказ значение не
+// попадает никогда.
+⋮----
+function bindingStoreFile(storeDir, ref)
+⋮----
+function writeBindingValue(storeDir, ref, value,
+⋮----
+function readBindingRecord(storeDir, ref)
+⋮----
+/**
+ * Host-owned резолвер credential binding'ов.
+ *
+ * @param {object} options
+ * @param {string} options.storeDir изолированный каталог store
+ * @param {() => Date} [options.now]
+ */
+function createCredentialResolver(
+⋮----
+/**
+   * @param {object} request
+   * @param {string} request.bindingRef
+   * @param {string} request.scope запрашиваемый scope операции
+   * @param {string|null} request.profileId профиль из доверенного envelope хоста
+   * @returns {{value: string, binding: object}}
+   */
+function resolve(
+⋮----
+return
+</file>
+
+<file path="src/gate/event-outbox.js">
+// Исходящий outbox нормализованных событий Gate.
+//
+// Событие публикуется в durable outbox, откуда его читают Input и Watcher
+// (C12). Дедупликация по eventId: повторная публикация того же события не
+// создаёт второго. Gate не создаёт GTD по факту внешнего события.
+⋮----
+function appendLine(file, line)
+⋮----
+function readLines(file)
+⋮----
+function eventIdFor(provider, providerEventId)
+⋮----
+/**
+ * @param {object} options
+ * @param {string} options.root изолированный корень outbox'а
+ * @param {() => Date} [options.now]
+ * @param {object} [options.log] общий event log Gate
+ */
+function createEventOutbox(
+⋮----
+/**
+   * @param {object} event нормализованное событие
+   * @param {string} event.providerEventId идентификатор события у провайдера
+   * @param {string} event.kind тип события
+   * @param {object} [event.operation] корреляция с исходящей операцией
+   */
+function publish(
+⋮----
+entries: ()
+count: ()
+</file>
+
+<file path="src/gate/index.js">
+// External Integration Gate (карточка P25, эпик E6 #22, этап I08, контракт C10).
+//
+// Gate связывает платформу с API и событиями внешних сервисов от имени
+// разрешённого пользователя/организации. Он не маршрутизирует Job types, не
+// запускает Agent Runner и не контролирует достижение цели: бизнес-правила
+// остаются в доменном репозитории (AC-152).
+//
+// Что здесь есть: versioned invoke / subscribe / reconcile / events,
+// bindings с host-owned резолвером значений, леджер операций с записью
+// operationId до вызова, входящий webhook inbox с проверкой подписи, дедупом и
+// быстрым ACK, исходящий outbox нормализованных событий и порт передачи в Input.
+⋮----
+/**
+ * @param {object} options
+ * @param {string} options.dataRoot изолированный корень песочницы Gate
+ * @param {() => Date} [options.now] детерминированные часы
+ * @param {object} [options.log] свой event log (по умолчанию пишется в `${dataRoot}/gate/events.jsonl`)
+ * @param {object} [options.credentialResolver] свой резолвер bindings
+ * @param {object} [options.adapterRegistry] свой реестр адаптеров
+ * @param {object} [options.bindingPolicy] явная политика создания задач из независимых событий
+ */
+function createIntegrationGate({
+  dataRoot,
+  now = () => new Date(),
+  log,
+  credentialResolver,
+  adapterRegistry,
+  bindingPolicy = { createTaskForUnmatchedEvent: false },
+  readProbePayload = null,
+} =
+⋮----
+secretResolver: (
+⋮----
+function envelope(
+⋮----
+function resolveBinding(
+⋮----
+function capabilityOf(adapter, capability)
+⋮----
+/**
+   * Исходящая операция. operationId пишется в леджер ДО вызова провайдера;
+   * повтор мутации с неизвестным исходом запрещён до reconcile (INV-07).
+   */
+async function invoke(
+⋮----
+function blockedResult(
+⋮----
+function payloadHashOf(payload)
+⋮----
+function nextOperationId()
+⋮----
+/**
+   * Подписка на события провайдера. Поддержка webhook не предполагается для
+   * каждого провайдера: если провайдер не поддерживает webhook, остаётся
+   * polling (capabilities объявляют только реально поддерживаемое).
+   *
+   * Адаптер, у которого нет `subscribe` или который объявляет
+   * `events.webhooks.supported === false`, не получает фиктивной подписки: Gate
+   * отказывает до обращения к провайдеру и не создаёт секрет подписи.
+   */
+async function subscribe(
+⋮----
+async function unsubscribe(
+⋮----
+/**
+   * Reconcile по operationId / externalOperationRef. Провайдер — источник
+   * истины; локальный леджер только сохраняет подтверждение.
+   */
+async function reconcile(
+⋮----
+// У провайдера без мутаций сверять нечего: адаптер не реализует reconcile,
+// и Gate не делает фиктивный вызов провайдера. Локальный леджер — единственный
+// источник состояния, и он возвращается как есть.
+⋮----
+/**
+   * Polling-маршрут: тот же scope, что у read и webhook — principal из binding,
+   * чужой binding отклоняется до обращения к провайдеру.
+   *
+   * Поток событий — тоже объявляемый транспорт: если у провайдера его нет,
+   * Gate не возвращает пустой список событий (иначе «нет событий» стало бы
+   * недоказуемым), а отказывает с `PROVIDER_EVENTS_NOT_SUPPORTED`.
+   */
+async function poll(
+⋮----
+/**
+   * Приём обратного вызова провайдера: подпись → durable receipt → дедуп →
+   * быстрый ACK → асинхронный dispatch (AC-150).
+   */
+function receiveCallback(
+⋮----
+/**
+   * Асинхронный dispatch принятого обратного вызова: нормализация, обновление
+   * существующей операции (без второй задачи) и публикация события в outbox.
+   */
+async function dispatchCallback(envelope =
+⋮----
+// Principal события берётся из подписки (binding), а не из поля profileId в
+// теле провайдера: тело — не доверенный источник принципала (AC-252).
+⋮----
+/**
+   * Capabilities и readiness по авторизованному binding: поддерживаемые
+   * операции, enabled/disabled и состояние выдачи.
+   *
+   * `probe: true` выполняет одну read-операцию, чтобы отличить «выдача есть» от
+   * «провайдер отклоняет». Без probe этого не утверждаем: готовность binding'а
+   * не доказывает здоровье выдачи у провайдера.
+   */
+async function capabilities(
+⋮----
+// Транспорты событий объявляет адаптер, а не Gate: у HH нет ни вебхуков, ни
+// потока событий, и пустой список транспортов — это честный ответ, а не
+// «ничего не поддерживается по ошибке».
+⋮----
+drain: ()
+writeBindingValue: (ref, value, options)
+</file>
+
+<file path="src/gate/operation-ledger.js">
+// Леджер операций Gate: operationId записывается ДО вызова провайдера.
+//
+// Это единственное место, которое знает состояние исходящей операции. Таймаут
+// после отправки переводит операцию в `outcome_unknown`; повтор той же
+// мутации запрещён, пока операция не прошла reconcile (INV-07, AC-151).
+// Обратный вызов существующей операции обновляет её состояние и не создаёт
+// вторую задачу (AC-253).
+⋮----
+function appendLine(file, line)
+⋮----
+function readLines(file)
+⋮----
+/**
+ * @param {object} options
+ * @param {string} options.root изолированный корень леджера
+ * @param {() => Date} [options.now]
+ * @param {object} [options.log] общий event log Gate
+ */
+function createOperationLedger(
+⋮----
+function persist(entry)
+⋮----
+function get(operationId)
+⋮----
+function findByExternalRef(externalOperationRef)
+⋮----
+/**
+   * Запись operationId до вызова провайдера. Возвращает запись-черновик,
+   * которую вызывающий обязан сохранить после ответа.
+   */
+function begin(
+⋮----
+function recordOutcome(operationId, outcome,
+⋮----
+/**
+   * Reconcile по operationId / externalOperationRef. Подтверждённый исход
+   * возвращается как есть; неизвестный остаётся неизвестным, и повтор мутации
+   * по-прежнему запрещён.
+   */
+function reconcile(operationId)
+⋮----
+/**
+   * Повтор мутации разрешён только после reconcile (INV-07).
+   */
+function canRetry(operationId)
+⋮----
+/** Отметка о том, что операция прошла reconcile и исход подтверждён. */
+function markReconciled(operationId)
+⋮----
+/**
+   * Обратный вызов существующей операции: обновляет состояние операции, не
+   * создаёт вторую задачу (AC-253).
+   */
+function markCallback(operationId,
+⋮----
+entries: ()
+</file>
+
+<file path="src/gate/subscription-store.js">
+// Хранилище подписок на webhook: webhookSubscriptionId → секрет подписи.
+//
+// Секрет выдаётся хостом при подписке и читается только хостом: обратный вызов
+// подписывается им, а приёмник проверяет. Значение не попадает в лог, в ответ
+// и в аргументы вызывающего.
+⋮----
+function storeFile(storeDir, webhookSubscriptionId)
+⋮----
+/**
+ * @param {object} options
+ * @param {string} options.storeDir изолированный каталог store
+ * @param {() => Date} [options.now]
+ */
+function createSubscriptionStore(
+⋮----
+function create(
+⋮----
+// Секрет хранится отдельно от публичной записи: его читает только приёмник.
+⋮----
+function get(webhookSubscriptionId)
+⋮----
+function secretOf(webhookSubscriptionId)
+⋮----
+function setLifecycle(webhookSubscriptionId, lifecycleState)
+⋮----
+function findByBinding(bindingRef)
+⋮----
+// повреждённая запись подписки не должна ронять чтение остальных
+</file>
+
+<file path="src/gate/task-port.js">
+// Порт передачи события в Input (C01).
+//
+// Gate не маршрутизирует Job types и не запускает Runner: независимое событие
+// создаёт задачу только по явной binding policy, а callback существующей
+// операции обновляет её состояние и вторую задачу не создаёт (AC-253). GTD по
+// факту внешнего события не создаётся никогда.
+⋮----
+/**
+ * @param {object} options
+ * @param {object} [options.log] общий event log Gate
+ * @param {() => Date} [options.now]
+ */
+function createTaskPort(
+⋮----
+/**
+   * @param {object} request
+   * @param {string} request.userTaskId новый userTaskId задачи
+   * @param {string|null} request.profileId
+   * @param {object|null} request.replyContext
+   * @param {object} request.causation eventId/operationId, из которых задача родилась
+   * @param {string} [request.gtdId] только при зарегистрированном контроле
+   */
+function submit(
+⋮----
+return
+</file>
+
+<file path="src/gate/webhook-inbox.js">
+// Входящий inbox обратных вызовов Gate.
+//
+// Порядок фиксирован контрактом (AC-150, AC-250): проверить подпись → durable
+// receipt → дедупликация → быстрый ACK → асинхронный dispatch. Тяжёлые данные
+// наружу не отдаются: сырой payload остаётся в приватном ref, а в ответе и в
+// логе — только нормализованные идентификаторы.
+//
+// Дедупликация по двум ключам: providerEventId (тот же вызов пришёл повторно) и
+// operationId (тот же эффект пришёл с новым идентификатором вызова). Повтор не
+// создаёт второго действия и второго события (AC-253).
+⋮----
+function appendLine(file, line)
+⋮----
+function readLines(file)
+⋮----
+function receiptIdFor(providerEventId)
+⋮----
+/**
+ * @param {object} options
+ * @param {string} options.root изолированный корень inbox'а
+ * @param {object} [options.log] общий event log Gate
+ * @param {() => Date} [options.clock]
+ * @param {(envelope: object) => Promise<object>} [options.dispatch] асинхронный обработчик
+ * @param {(request: {provider: string, subscriptionId: string|null}) => string|undefined} [options.secretResolver]
+ * @param {number} [options.maxAgeMs]
+ */
+function createWebhookInbox(
+⋮----
+function keyFor(envelope)
+⋮----
+/**
+   * Приём обратного вызова. Возвращает ACK сразу: dispatch выполняется после
+   * подтверждения, а не до него.
+   */
+function receive(
+⋮----
+// Durable receipt пишется до ACK: подтверждение означает, что вызов принят
+// и не потеряется, даже если dispatch ещё не выполнился.
+⋮----
+function parseEnvelope(rawBody)
+⋮----
+drain: ()
+receivedCount: ()
+appliedCount: ()
+receivedEntries: ()
+appliedEntries: ()
+</file>
+
+<file path="src/gate/webhook-signature.js">
+// Подпись входящих обратных вызовов провайдера.
+//
+// Схема: HMAC-SHA256 по строке `${timestamp}.${rawBody}`, заголовки
+// `x-gate-signature: v1=<hex>`, `x-gate-timestamp`, `x-gate-delivery`. Секрет
+// берётся из host-owned store по подписке — он не приходит от вызывающего и не
+// пишется в лог. Сравнение в константном времени; окно допустимого смещения
+// часов ограничено, иначе перехваченный вызов можно проиграть повторно.
+⋮----
+function sign(
+⋮----
+function safeEqual(a, b)
+⋮----
+/**
+ * @param {object} params
+ * @param {string} params.secret секрет подписи подписки (host-owned)
+ * @param {string} params.signature значение заголовка x-gate-signature
+ * @param {string} params.timestamp значение заголовка x-gate-timestamp
+ * @param {string} params.rawBody сырое тело запроса
+ * @param {() => Date} [params.now]
+ * @param {number} [params.maxAgeMs]
+ * @returns {{ok: boolean, reasonCode: string|null, detail: string|null}}
+ */
+function verify(
+</file>
+
+<file path="src/http/server.js">
+// HTTP-фасад Gate: versioned API поверх ядра.
+//
+// Фасад не содержит бизнес-правил и не дублирует адаптер: он принимает
+// запрос, берёт principal из доверенного host envelope (заголовок x-gate-profile
+// ставит хост, а не модель) и вызывает ядро. Значения bindings и секреты
+// подписи наружу не возвращаются.
+⋮----
+// Маршруты пилота P26: существующий cron холодного поиска → срабатывания
+// расписания. Пилот не является частью контракта Gate, поэтому он подключается
+// фасадом и может отсутствовать.
+⋮----
+function sendJson(response, status, body)
+⋮----
+/**
+ * @param {object} gate ядро Gate (src/gate/index.js)
+ * @param {object} [options]
+ * @param {string} [options.hostToken] токен хоста для внутренних вызовов
+ * @param {object} [options.pilot] пилот карточки P26 (src/pilot/cold-search.js)
+ */
+function createHttpServer(gate,
+⋮----
+// Principal приходит из доверенного envelope хоста, а не из аргументов модели.
+⋮----
+/**
+ * Поднять фасад на loopback и вернуть базовый URL.
+ */
+async function startHttpServer(gate, options =
+⋮----
+return
+</file>
+
+<file path="src/pilot/cold-search.js">
+// Пилот карточки P26: существующий cron холодного поиска → срабатывания
+// расписания (эпик E6 #22, этап I08).
+//
+// Граница модуля — важная часть приёмки:
+//
+//   1. Маппинг НЕ пересчитывает cron. Пять полей и часовой пояс приходят из
+//      существующего доменного кода (`hh-cold-search-cron.js`: один cron-job на
+//      вакансию, `Europe/Moscow`, смещение по вакансии). Gate только принимает
+//      декларацию как данные и переводит её в запрос расписания P22. Второго
+//      генератора cron-выражений здесь нет и не заводится.
+//
+//   2. Срабатывания принадлежат расписанию P22 (`scheduleId`, `occurrenceId`,
+//      `occurrenceKey`, `userTaskId`, `scheduledFor`). Gate их не выводит: он
+//      принимает готовое occurrence и исполняет его. Дедуп по
+//      `(scheduleId, occurrenceKey)` живёт в расписании; здесь — только
+//      идемпотентная запись результата, чтобы повторная доставка того же
+//      occurrence не сделала второй запрос к провайдеру и не создала вторую
+//      задачу.
+//
+//   3. Данные интеграции возвращаются через общий task flow: задача
+//      подаётся тем же контрактом, что у задачи расписания P22
+//      (`OccurrenceSubmitter`), а результат поиска уходит в терминальный
+//      результат задачи. Отдельного канала доставки (уведомление, вебхук,
+//      событие outbox) пилот не создаёт: холодные уведомления в домене уже
+//      закрыты, результат живёт на странице/в задаче.
+//
+//   4. Почасовая поддержка НЕ выдаётся за production enabled: пилот объявляет
+//      `hourlyProductionEnabled: false`, а запрос на прод отказывает до
+//      настройки. Триггер продакшна (`tick`) — решение владельца (P22).
+⋮----
+function appendLine(file, line)
+⋮----
+function readLines(file)
+⋮----
+function isNonEmptyString(value)
+⋮----
+function isValidTimezone(timezone)
+⋮----
+function isValidCron(cron)
+⋮----
+function occurrenceLedgerKey(scheduleId, occurrenceKey)
+⋮----
+/**
+ * @param {object} options
+ * @param {object} options.gate ядро Gate (invoke)
+ * @param {string} options.dataRoot изолированный корень пилота
+ * @param {() => Date} [options.now]
+ * @param {object} [options.log] общий event log Gate
+ * @param {object} options.taskFlow общий task flow: { submit, complete }
+ * @param {number} [options.maxAttempts] ограничение попыток на occurrence
+ */
+function createColdSearchPilot(
+⋮----
+function persist(entry)
+⋮----
+function status()
+⋮----
+/**
+   * Существующая декларация cron холодного поиска → запрос расписания P22.
+   *
+   * Поля ответа — ровно контракт `POST /schedules` расписания (P22): ничего
+   * своего пилот не добавляет. `provenance` — откуда пришла декларация.
+   */
+function declareSchedule(
+⋮----
+/**
+   * Исполнение одного occurrence: задача через общий task flow, поиск через
+   * Gate, результат — в терминальный результат задачи.
+   */
+async function runOccurrence(
+⋮----
+// Задача принята общим task flow → occurrence терминален: исход провайдера
+// живёт в результате задачи, а не в новой попытке. Нетерминальным остаётся
+// только отказ самого task flow (`submit_failed`) — он ограничен
+// `maxAttempts`, как `max_admit_attempts` у расписания P22.
+⋮----
+occurrences: ()
+</file>
+
+<file path="src/provider-emulator/hh-api.js">
+// Эмулятор HH в форме настоящего API провайдера (карточка P26, эпик E6 #22).
+//
+// Первый реальный домен пилота. Отличие от эмулятора P25: здесь воспроизводится
+// контракт НАСТОЯЩЕГО бесплатного HH API — `GET /resumes` с `text`/`area`/`page`/
+// `per_page`/`order_by`, обязательными `Authorization: Bearer` и
+// `User-Agent`/`HH-User-Agent`, телом ошибки `{message, code}` и обновлением
+// выдачи через `POST /token`.
+//
+// Это ЭМУЛЯТОР, а не живой тест: режим HH test account не зафиксирован
+// (AC-30, блокер этапа I08), поэтому read-only сценарий идёт против очищенного
+// синтетического сэмпла. `fidelity.liveSmoke.performed` остаётся false, и
+// зелёный прогон эмулятора не выдаётся за production enabled.
+//
+// Свойства, которые эмулируются: квота и rate limit (429), ответ 5xx,
+// отказ авторизации (401) и обновление выдачи, а также невалидная полезная
+// нагрузка (200 без `items`). Чего эмулировать НЕ нужно: HH не имеет вебхуков
+// и потока событий, поэтому таких маршрутов здесь просто нет — адаптер не может
+// получить от эмулятора фиктивную подписку.
+⋮----
+// Очищенный синтетический сэмпл: персональных данных нет — имена помечены как
+// сэмпл, идентификаторы вымышленные.
+⋮----
+function short(hash, length = 12)
+⋮----
+function digest(...parts)
+⋮----
+function issueToken(seed)
+⋮----
+/**
+ * @param {object} options
+ * @param {string} options.root изолированный корень эмулятора
+ * @param {() => Date} [options.now]
+ * @param {string} [options.fault] один из FAULT_MODES
+ * @param {string} [options.refreshToken] значение, которым хост обновляет выдачу
+ * @param {boolean} [options.listen=true] не поднимать сервер: провайдер недоступен
+ */
+function createHhApiEmulator(
+⋮----
+/**
+   * Значение выдачи, которое принимает провайдер. В песочнице оно синтетическое и
+   * выдаётся хостом: реальная выдача HH живёт в Secret Manager, а не здесь.
+   */
+function acceptedAccessToken(seed = 'default')
+⋮----
+/** Записать приватный артефакт провайдера: сырые данные не идут в лог. */
+function writeArtifact(ref, data)
+⋮----
+function hhError(status, message, extra =
+⋮----
+function readResumes(query, headers =
+⋮----
+// Настоящий HH отвечает 400 без идентификации клиента: это и проверяется.
+⋮----
+function refreshAccess(
+⋮----
+⋮----
+async function start()
+⋮----
+function stop()
+⋮----
+reads: ()
+refreshes: ()
+get port()
+isListening: ()
+</file>
+
+<file path="src/provider-emulator/index.js">
+// Эмулятор внешнего провайдера для External Integration Gate (P25, этап I08).
+//
+// Это ЭМУЛЯТОР: у внешнего сервиса нет provider sandbox, поэтому этап
+// проверяется против эмулятора с очищенным контрактным сэмплом (SANDBOX.md:
+// «passing emulator не называется успешным live provider test»). Зелёный прогон
+// эмулятора не является живым тестом провайдера — это записано в `fidelity`.
+//
+// Что проверяется по-настоящему:
+//   - внешний эффект на диске изолированного root, а не заглушка;
+//   - happens-once по operationId: повтор возвращает ту же квитанцию;
+//   - управляемые сбои: success / error / delay / auth_expiry /
+//     duplicate_callback / unreachable;
+//   - подписанные обратные вызовы (HMAC) с дубликатами: эмулятор отправляет их
+//     настоящим HTTP POST в webhook-приёмник Gate;
+//   - поздняя квитанция после delay и reconcile по operationId.
+//
+// Чего эмулятор не доказывает: свойства живого провайдера (см. `fidelity`).
+⋮----
+// Очищенный контрактный сэмпл: синтетика без персональных данных.
+⋮----
+function digest(...parts)
+⋮----
+function short(hash, length = 12)
+⋮----
+function eventIdFor(scope, key)
+⋮----
+function receiptIdFor(operationId, payloadHash)
+⋮----
+function externalRefFor(operationId)
+⋮----
+function callbackIdFor(operationId, index)
+⋮----
+function subscriptionIdFor(bindingRef, eventType)
+⋮----
+function sleep(ms)
+⋮----
+function signCallback(
+⋮----
+/**
+ * Чтение записи внешнего сервиса. «Записи нет» и «запись нечитаема» — разные
+ * состояния: второе нельзя трактовать как «эффекта не было», иначе повтор
+ * создаст второй эффект (ловушка PR-04).
+ */
+function readRecord(file)
+⋮----
+function writeRecord(dir, record)
+⋮----
+function sendJson(port, pathname, body, headers =
+⋮----
+/**
+ * @param {object} options
+ * @param {string} options.root изолированный корень эмулятора
+ * @param {() => Date} [options.now]
+ * @param {string} [options.fault] один из FAULT_MODES
+ * @param {number} [options.delayMs]
+ * @param {string} [options.webhookUrl] база webhook-приёмника Gate
+ * @param {string} [options.webhookSecret] секрет подписи обратных вызовов (host-owned)
+ * @param {boolean} [options.listen=false] не поднимать сервер: «сервис недоступен»
+ */
+function createProviderEmulator(
+⋮----
+// Обратные вызовы уходят на webhook-приёмник Gate, а не на собственный порт
+// эмулятора: иначе проверялась бы доставка сама в себя.
+⋮----
+/** Секрет подписи выдаёт хост при подписке; эмулятор подписывает им вызовы. */
+function setWebhookSecret(value)
+⋮----
+/** Провайдер возвращает идентификатор подписки в теле обратного вызова. */
+function setSubscriptionId(value)
+⋮----
+function storeFor(operationId)
+⋮----
+function lookup(operationId)
+⋮----
+/**
+   * Подписанный обратный вызов. Дубликаты — и есть проверка: тот же callbackId
+   * повторно и один раз с новым callbackId, но тем же operationId.
+   */
+async function deliverCallback(record,
+⋮----
+// Часы песочницы: иначе реальное время хоста выпадало бы из окна
+// допустимого смещения приёмника.
+⋮----
+const issueReceipt = () =>
+⋮----
+// Ответ и квитанция приходят позже дедлайна клиента: вызывающий видит
+// неизвестный исход, эффект уже применён. Квитанция «догоняет» позже.
+⋮----
+function recordEvent(event)
+⋮----
+// Маршруты эмулятора задаются шаблонами: путь с идентификатором приводится к
+// виду `/v1/searches/{searchId}/status`, иначе реальный идентификатор не
+// совпал бы с ключом маршрута.
+⋮----
+// Тело запроса — часть контракта: без него провайдер не видел бы binding.
+⋮----
+async function start()
+⋮----
+function stop()
+⋮----
+get port()
+isListening: ()
+⋮----
+count: ()
+</file>
+
+<file path="tests/hh-pilot.test.js">
+// Приёмка P26 (карточка #65, эпик E6 #22, этап I08): реалистичный адаптер HH и
+// существующий cron холодного поиска → срабатывания расписания.
+//
+// Покрытие: AC-153 (почасовая поддержка не выдаётся за production enabled;
+// неподдержанный webhook не обещан; данные интеграции возвращаются через общий
+// task flow), управляемые сбои провайдера (429, 401, невалидная полезная
+// нагрузка, недоступность), логи этапа I08 (AC-154) и границы: одна реализация
+// адаптера и один генератор cron-выражений.
+⋮----
+const now = ()
+const advance = ms =>
+⋮----
+// Декларации существующего cron холодного поиска: те же значения, что выдаёт
+// доменный `intervalToCron` (trained-assist-hh-skill, hh-cold-search-cron.js).
+// Пилот обязан принимать их как данные, а не пересчитывать.
+⋮----
+function makeRoot(name)
+⋮----
+async function teardownAll()
+⋮----
+/** Общий task flow песочницы: тот же контракт, что у задачи расписания P22. */
+function createTaskFlowRecorder()
+⋮----
+failNextSubmit()
+async submit(input)
+async complete(input)
+⋮----
+async function buildStack(
+⋮----
+// Приватный артефакт провайдера пишет хост: сырые резюме не идут в лог.
+recordArtifact: params
+⋮----
+refreshAccessToken: async () =>
+⋮----
+function occurrenceFor(declaration,
+⋮----
+// Каждый случай — отдельный occurrence: повторная доставка того же срабатывания
+// дедуплицируется и не дала бы второго ответа.
+</file>
+
+<file path="tests/integration-gate.test.js">
+// Приёмка P25 (карточка #64, эпик E6 #22, этап I08).
+//
+// Тесты проверяют внешний контракт Gate, а не внутренние вызовы: каждый сценарий
+// поднимает изолированный стек (Gate + эмулятор провайдера на loopback) и
+// наблюдает только исходы, квитанции, логи и эффекты на диске провайдера.
+//
+// Покрытие: AC-150/AC-250 (webhook: подпись → inbox + dedup → быстрый ACK →
+// dispatch), AC-151/AC-251 (timeout = unknown до reconcile), AC-152 (одна
+// реализация адаптера, бизнес-правила вне Gate), AC-252 (principal из binding),
+// AC-253 (callback существующей операции не создаёт вторую задачу), логи этапа
+// I08 (AC-154).
+⋮----
+const now = ()
+const advance = ms =>
+⋮----
+function makeRoot(name)
+⋮----
+async function teardownAll()
+⋮----
+async function buildStack(
+⋮----
+function waitFor(predicate,
+⋮----
+const step = () =>
+⋮----
+async function settle(gate, emulator)
+⋮----
+function signedCallback(
+⋮----
+const byEvent = name
+</file>
+
+<file path="tools/repo-context/map.py">
+#!/usr/bin/env python3
+"""Bounded deterministic repo index from tracked files; never calls a model."""
+⋮----
+ROOT = Path(subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip())
+OUT = ROOT / ".repo-context/output"
+LIMIT = 8192
+EXCLUDE = (".env*", "*.key", "*.pem", "*secrets*", "*credentials*", "package-lock.json", "*.log")
+⋮----
+def allowed(name)
+⋮----
+p = Path(name)
+⋮----
+def build()
+⋮----
+sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+names = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).decode().split("\0")
+names = sorted(n for n in names if n and allowed(n) and (ROOT / n).is_file() and not (ROOT / n).is_symlink())
+repo = os.environ.get("GITHUB_REPOSITORY", "trained-assist/trained-agent-architecture")
+base = f"https://github.com/{repo}/blob/{sha}/"
+rows = ["# Repository map", "", f"Source: `{repo}@{sha}`", "",
+⋮----
+path = ROOT / name
+label = name.replace("`", "").replace("\n", " ")
+detail = ""
+⋮----
+# Extract only structural headings, never paragraphs / fenced examples.
+⋮----
+fenced = not fenced
+⋮----
+detail = " — " + "; ".join(headings[:3]) if headings else ""
+row = f"- `{label}`{detail}"
+tail = f"\n\nOmitted from short index: {len(names)} paths at most. Full inventory is in manifest.json.\n"
+⋮----
+output = "\n".join(rows)
+⋮----
+manifest = {
+</file>
+
+<file path="tools/repo-context/package.json">
+{
+  "name": "trained-assist-repo-context",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Deterministic repository packing; no inference",
+  "devDependencies": { "repomix": "1.18.1" }
+}
+</file>
+
+<file path="package.json">
+{
+  "name": "trained-assist-integration-gate",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Trained Assist External Integration Gate: versioned invoke/subscribe/reconcile/events, bindings, webhook inbox",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "check": "node scripts/check-syntax.js",
+    "test": "node --test --test-concurrency=1 tests/*.test.js",
+    "sandbox": "node scripts/sandbox/integration-gate-sandbox.cjs",
+    "sandbox:p26": "node scripts/sandbox/hh-pilot-sandbox.cjs",
+    "evidence:verify": "node scripts/sandbox/integration-gate-sandbox.cjs --verify",
+    "evidence:verify:p26": "node scripts/sandbox/hh-pilot-sandbox.cjs --verify"
+  },
+  "devDependencies": {}
+}
+</file>
+
+<file path="README.md">
+# trained-assist-integration-gate
+
+Trained Assist External Integration Gate: единый контракт транспорта и жизненного цикла внешних интеграций.
+
+Статус: карточка P26 (этап I08, эпик E6) — реалистичный адаптер HH и существующий cron холодного поиска, смапленный на срабатывания расписания. Карточка P25 — versioned `invoke` / `subscribe` / `reconcile` / `events`, provider emulators, подписанные обратные вызовы, webhook inbox и `operationId` эффекта.
+
+## Что здесь лежит
+
+- **Контракт** (`src/contract/`): версии `gate-contract/v1` и `provider-adapter/v1`, нормализованные исходы и коды (словарь общий с P15), общий event log с вычисткой секретов, заявка на живой smoke.
+- **Gate** (`src/gate/`): bindings с host-owned резолвером значений, леджер операций (`operationId` пишется до вызова, таймаут = `outcome_unknown` до reconcile), реестр адаптеров (одна реализация на провайдера), webhook inbox (подпись → durable receipt → дедуп → быстрый ACK → async dispatch), исходящий outbox и порт передачи в Input.
+- **Адаптеры** (`src/adapters/`): транспорт один (`http-client.js`, общий для всех провайдеров) — `hh-sandbox-adapter.js` (эмулятор P25) и `hh-adapter.js` (реалистичный read-only HH: `GET /resumes`, выдача, ограниченные повторы, одна попытка обновить выдачу). Бизнес-правила здесь не живут.
+- **Эмуляторы провайдеров** (`src/provider-emulator/`): эмулятор P25 с шестью управляемыми сбоями и эмулятор HH в форме настоящего API (`/resumes`, `/token`) с очищенным сэмплом.
+- **Пилот P26** (`src/pilot/cold-search.js`): существующий cron холодного поиска → запрос расписания P22 и исполнение occurrence через общий task flow. Почасовая поддержка не выдаётся за production enabled; webhook и поток событий HH не обещаны.
+- **Фасад** (`src/http/`): versioned HTTP API Gate, включая маршруты пилота.
+- **Песочницы этапа** (`scripts/sandbox/`, `tests/`, `docs/INTEGRATION-GATE.md`): одна команда setup → run → evidence → teardown, воспроизводимый sanitized transcript.
+
+## Запуск
+
+```bash
+npm run check                 # синтаксис всех модулей
+npm test                      # 38 проверок контракта и приёмки (P25 + P26)
+npm run sandbox               # сценарий P25 → docs/evidence/p25-integration-gate
+npm run sandbox:p26           # сценарий P26 → docs/evidence/p26-hh-pilot
+npm run evidence:verify       # сверка transcript P25 с закоммиченным
+npm run evidence:verify:p26   # сверка transcript P26 с закоммиченным
+```
+
+Песочницы изолированы: `.sandbox/p25-<pid>/` и `.sandbox/p26-<pid>/` на loopback, прод-данные и прод-токены не используются.
+
+## Откуда берётся работа
+
+- Границы и ownership: [ARCHITECTURE §9](https://github.com/trained-assist/trained-agent-architecture/blob/main/ARCHITECTURE.md#9-репозитории-и-ownership), контракт [C10](https://github.com/trained-assist/trained-agent-architecture/blob/main/contracts/README.md#c10--external-integration-gate--provider--task-system).
+- Порядок и карточки с приёмкой: [план реализации и интеграции](https://github.com/trained-assist/trained-agent-architecture/blob/main/IMPLEMENTATION-AND-INTEGRATION-PLAN.md) — этап I08, карточки P25 и P26.
+- Правила разработки и песочниц: [Engineering Approach](https://github.com/trained-assist/trained-agent-architecture/blob/main/ENGINEERING-APPROACH.md), [SANDBOX · I08](https://github.com/trained-assist/trained-agent-architecture/blob/main/SANDBOX.md#i08--external-integration-gate).
+
+Живой сервис этим репозиторием не меняется: реализация идёт параллельно, в собственных sandbox-развёртываниях.
+
+## Контекст репозитория
+
+CI `Repository context` на каждый PR и main собирает карту [REPO-MAP.md](https://github.com/trained-assist/trained-assist-integration-gate/blob/repo-context/REPO-MAP.md) и сжатый пакет (I00/Z03).
+</file>
+
+</files>

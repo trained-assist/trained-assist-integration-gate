@@ -1,0 +1,278 @@
+{
+  "schemaVersion": 1,
+  "generatorVersion": "1.0.0",
+  "repomixVersion": "1.18.1",
+  "repository": "trained-assist/trained-assist-integration-gate",
+  "sourceSha": "fc9418755e298b4a1e0ee250d96879bc4452bf64",
+  "dirty": false,
+  "mapByteLimit": 8192,
+  "mapBytes": 2357,
+  "indexed": [
+    ".github/workflows/ci-fix-cleanup.yml",
+    ".github/workflows/ci.yml",
+    ".github/workflows/pr-autofix.yml",
+    ".github/workflows/repo-context.yml",
+    ".gitignore",
+    ".repo-context/.gitignore",
+    ".repo-context/repomix.config.json",
+    "AGENTS.md",
+    "README.md",
+    "docs/INTEGRATION-GATE.md",
+    "docs/evidence/p25-integration-gate/transcript.json",
+    "docs/evidence/p25-integration-gate/transcript.sha256",
+    "docs/evidence/p26-hh-pilot/transcript.json",
+    "docs/evidence/p26-hh-pilot/transcript.sha256",
+    "package.json",
+    "scripts/check-syntax.js",
+    "scripts/sandbox/hh-pilot-sandbox.cjs",
+    "scripts/sandbox/integration-gate-sandbox.cjs",
+    "src/adapters/hh-adapter.js",
+    "src/adapters/hh-sandbox-adapter.js",
+    "src/adapters/http-client.js",
+    "src/contract/events.js",
+    "src/contract/live-smoke.js",
+    "src/contract/outcomes.js",
+    "src/contract/version.js",
+    "src/gate/adapter-registry.js",
+    "src/gate/bindings.js",
+    "src/gate/event-outbox.js",
+    "src/gate/index.js",
+    "src/gate/operation-ledger.js",
+    "src/gate/subscription-store.js",
+    "src/gate/task-port.js",
+    "src/gate/webhook-inbox.js",
+    "src/gate/webhook-signature.js",
+    "src/http/server.js",
+    "src/pilot/cold-search.js",
+    "src/provider-emulator/hh-api.js",
+    "src/provider-emulator/index.js",
+    "tests/hh-pilot.test.js",
+    "tests/integration-gate.test.js",
+    "tools/repo-context/.gitignore",
+    "tools/repo-context/map.py",
+    "tools/repo-context/package.json"
+  ],
+  "omittedFromMap": [],
+  "inventory": [
+    {
+      "path": ".github/workflows/ci-fix-cleanup.yml",
+      "bytes": 536
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "bytes": 784
+    },
+    {
+      "path": ".github/workflows/pr-autofix.yml",
+      "bytes": 1304
+    },
+    {
+      "path": ".github/workflows/repo-context.yml",
+      "bytes": 2886
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 52
+    },
+    {
+      "path": ".repo-context/.gitignore",
+      "bytes": 8
+    },
+    {
+      "path": ".repo-context/repomix.config.json",
+      "bytes": 901
+    },
+    {
+      "path": "AGENTS.md",
+      "bytes": 478
+    },
+    {
+      "path": "README.md",
+      "bytes": 5052
+    },
+    {
+      "path": "docs/INTEGRATION-GATE.md",
+      "bytes": 25048
+    },
+    {
+      "path": "docs/evidence/p25-integration-gate/transcript.json",
+      "bytes": 20988
+    },
+    {
+      "path": "docs/evidence/p25-integration-gate/transcript.sha256",
+      "bytes": 65
+    },
+    {
+      "path": "docs/evidence/p26-hh-pilot/transcript.json",
+      "bytes": 25265
+    },
+    {
+      "path": "docs/evidence/p26-hh-pilot/transcript.sha256",
+      "bytes": 65
+    },
+    {
+      "path": "package.json",
+      "bytes": 737
+    },
+    {
+      "path": "scripts/check-syntax.js",
+      "bytes": 1280
+    },
+    {
+      "path": "scripts/sandbox/hh-pilot-sandbox.cjs",
+      "bytes": 35398
+    },
+    {
+      "path": "scripts/sandbox/integration-gate-sandbox.cjs",
+      "bytes": 33764
+    },
+    {
+      "path": "src/adapters/hh-adapter.js",
+      "bytes": 14179
+    },
+    {
+      "path": "src/adapters/hh-sandbox-adapter.js",
+      "bytes": 10651
+    },
+    {
+      "path": "src/adapters/http-client.js",
+      "bytes": 3431
+    },
+    {
+      "path": "src/contract/events.js",
+      "bytes": 3741
+    },
+    {
+      "path": "src/contract/live-smoke.js",
+      "bytes": 1704
+    },
+    {
+      "path": "src/contract/outcomes.js",
+      "bytes": 3109
+    },
+    {
+      "path": "src/contract/version.js",
+      "bytes": 1292
+    },
+    {
+      "path": "src/gate/adapter-registry.js",
+      "bytes": 2746
+    },
+    {
+      "path": "src/gate/bindings.js",
+      "bytes": 3808
+    },
+    {
+      "path": "src/gate/event-outbox.js",
+      "bytes": 3652
+    },
+    {
+      "path": "src/gate/index.js",
+      "bytes": 27324
+    },
+    {
+      "path": "src/gate/operation-ledger.js",
+      "bytes": 8220
+    },
+    {
+      "path": "src/gate/subscription-store.js",
+      "bytes": 3664
+    },
+    {
+      "path": "src/gate/task-port.js",
+      "bytes": 2139
+    },
+    {
+      "path": "src/gate/webhook-inbox.js",
+      "bytes": 8276
+    },
+    {
+      "path": "src/gate/webhook-signature.js",
+      "bytes": 2788
+    },
+    {
+      "path": "src/http/server.js",
+      "bytes": 8139
+    },
+    {
+      "path": "src/pilot/cold-search.js",
+      "bytes": 16127
+    },
+    {
+      "path": "src/provider-emulator/hh-api.js",
+      "bytes": 11697
+    },
+    {
+      "path": "src/provider-emulator/index.js",
+      "bytes": 23060
+    },
+    {
+      "path": "tests/hh-pilot.test.js",
+      "bytes": 30748
+    },
+    {
+      "path": "tests/integration-gate.test.js",
+      "bytes": 27655
+    },
+    {
+      "path": "tools/repo-context/.gitignore",
+      "bytes": 14
+    },
+    {
+      "path": "tools/repo-context/map.py",
+      "bytes": 4513
+    },
+    {
+      "path": "tools/repo-context/package.json",
+      "bytes": 198
+    }
+  ],
+  "configSha256": "c8bb3adc42afdf7e2efbfbc7a65e07f11086e3e72204527a365b7f671c75db68",
+  "packedPaths": [
+    ".github/workflows/ci-fix-cleanup.yml",
+    ".github/workflows/ci.yml",
+    ".github/workflows/pr-autofix.yml",
+    ".github/workflows/repo-context.yml",
+    ".repo-context/repomix.config.json",
+    "scripts/sandbox/hh-pilot-sandbox.cjs",
+    "scripts/sandbox/integration-gate-sandbox.cjs",
+    "scripts/check-syntax.js",
+    "src/adapters/hh-adapter.js",
+    "src/adapters/hh-sandbox-adapter.js",
+    "src/adapters/http-client.js",
+    "src/contract/events.js",
+    "src/contract/live-smoke.js",
+    "src/contract/outcomes.js",
+    "src/contract/version.js",
+    "src/gate/adapter-registry.js",
+    "src/gate/bindings.js",
+    "src/gate/event-outbox.js",
+    "src/gate/index.js",
+    "src/gate/operation-ledger.js",
+    "src/gate/subscription-store.js",
+    "src/gate/task-port.js",
+    "src/gate/webhook-inbox.js",
+    "src/gate/webhook-signature.js",
+    "src/http/server.js",
+    "src/pilot/cold-search.js",
+    "src/provider-emulator/hh-api.js",
+    "src/provider-emulator/index.js",
+    "tests/hh-pilot.test.js",
+    "tests/integration-gate.test.js",
+    "tools/repo-context/map.py",
+    "tools/repo-context/package.json",
+    "package.json",
+    "README.md"
+  ],
+  "packScope": "repomix.config.json allowlist; Markdown is not AST-compressed",
+  "files": {
+    "REPO-MAP.md": {
+      "bytes": 2357,
+      "sha256": "a6eef79ee5285e1f62743db22551e1bf1d18728ab6a73a2897590b85c385ac3a"
+    },
+    "repo-compressed.xml": {
+      "bytes": 76989,
+      "sha256": "3a831a98a7488198960f4d3388c3a54ab37f77f93719a0893d43934e78899ba2"
+    }
+  }
+}
