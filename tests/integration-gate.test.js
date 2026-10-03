@@ -47,7 +47,7 @@ async function teardownAll() {
   }
 }
 
-async function buildStack({ fault = 'success', bindingOptions = {}, providerOptions = {} } = {}) {
+async function buildStack({ fault = 'success', bindingOptions = {}, providerOptions = {}, subscribe = true } = {}) {
   const root = makeRoot(`stack-${fault}-${teardowns.length}`);
   const gate = createIntegrationGate({ dataRoot: root, now, readProbePayload: { searchId: 'search-demo-1' } });
   const facade = await startHttpServer(gate);
@@ -78,7 +78,7 @@ async function buildStack({ fault = 'success', bindingOptions = {}, providerOpti
 
   let subscription = null;
   let secret = null;
-  if (started.listening) {
+  if (started.listening && subscribe) {
     subscription = await gate.subscribe({
       integrationBindingId: bindingRef,
       eventType: 'application.decision.recorded',
@@ -89,6 +89,8 @@ async function buildStack({ fault = 'success', bindingOptions = {}, providerOpti
       secret = gate.subscriptionStore.secretOf(subscription.webhookSubscriptionId);
       emulator.setWebhookSecret(secret);
       emulator.setSubscriptionId(subscription.webhookSubscriptionId);
+    } else if (!bindingOptions.expiresAt) {
+      throw new Error(`webhook subscription was not established: ${JSON.stringify(subscription)}`);
     }
   }
 
@@ -535,7 +537,7 @@ test('истёкший binding отклоняется до обращения к
 });
 
 test('недоступный провайдер — это failed, а не неизвестность', async () => {
-  const { gate, emulator, bindingRef, profileId } = await buildStack({ fault: 'unreachable', providerOptions: { listen: false } });
+  const { gate, emulator, bindingRef, profileId } = await buildStack({ fault: 'unreachable', providerOptions: { listen: false }, subscribe: false });
 
   const mutation = await gate.invoke({
     integrationBindingId: bindingRef,
