@@ -9,7 +9,7 @@
   },
   "scripts": {
     "check": "node scripts/check-syntax.js",
-    "test": "node --test tests/*.test.js",
+    "test": "node --test --test-concurrency=1 tests/*.test.js",
     "sandbox": "node scripts/sandbox/integration-gate-sandbox.cjs",
     "sandbox:p26": "node scripts/sandbox/hh-pilot-sandbox.cjs",
     "evidence:verify": "node scripts/sandbox/integration-gate-sandbox.cjs --verify",
