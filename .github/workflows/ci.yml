@@ -26,5 +26,9 @@ jobs:
         run: npm test
       - name: Sandbox scenario (stage I08)
         run: npm run sandbox
+      - name: Sandbox scenario P26 (HH pilot)
+        run: npm run sandbox:p26
       - name: Evidence is reproducible
         run: npm run evidence:verify
+      - name: Evidence P26 is reproducible
+        run: npm run evidence:verify:p26
