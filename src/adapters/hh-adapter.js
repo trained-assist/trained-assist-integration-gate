@@ -23,6 +23,7 @@
 
 const { ADAPTER_PROTOCOL_VERSION } = require('../contract/version');
 const { requestLiveSmoke: liveSmokeRequest } = require('../contract/live-smoke');
+const { reportError } = require('../contract/events');
 const { requestJson, DEFAULT_TIMEOUT_MS } = require('./http-client');
 
 const PROVIDER = 'hh';
@@ -214,6 +215,7 @@ function createHhAdapter({
         try {
           fresh = await refreshAccessToken({ bindingRef: binding.binding.ref, profileId });
         } catch (error) {
+          const detail = 'the host could not refresh the credential binding';
           log?.write('provider.auth_refresh_failed', {
             operationId: String(operationId),
             capability: 'hh.search_resumes',
@@ -223,7 +225,16 @@ function createHhAdapter({
             from: 'refresh_requested',
             to: 'refresh_failed',
             reasonCode: 'AUTH_REFRESH_FAILED',
-            detail: 'the host could not refresh the credential binding',
+            detail,
+          });
+          reportError(log, {
+            code: 'PROVIDER_AUTH_REFRESH_FAILED',
+            operation: 'refreshAccessToken',
+            detail,
+            profileId,
+            userTaskId,
+            runId,
+            replyContext,
           });
         }
         if (fresh) {

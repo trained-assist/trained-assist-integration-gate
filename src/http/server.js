@@ -9,6 +9,8 @@
 
 const http = require('http');
 
+const { reportError } = require('../contract/events');
+
 const ROUTES = [
   { method: 'POST', pattern: /^\/v1\/invoke$/, handler: 'invoke' },
   { method: 'POST', pattern: /^\/v1\/subscribe$/, handler: 'subscribe' },
@@ -167,7 +169,14 @@ function createHttpServer(gate, { hostToken = null, pilot = null } = {}) {
 
         sendJson(response, 500, { status: 'error', code: 'ROUTE_NOT_WIRED', detail: `route ${route.handler} is not wired` });
       } catch (error) {
-        sendJson(response, 500, { status: 'error', code: 'GATE_ERROR', detail: String(error && error.message ? error.message : error) });
+        const detail = String(error && error.message ? error.message : error);
+        reportError(gate.log, {
+          code: 'GATE_ERROR',
+          operation: route.handler,
+          detail,
+          profileId,
+        });
+        sendJson(response, 500, { status: 'error', code: 'GATE_ERROR', detail });
       }
     });
   });

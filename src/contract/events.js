@@ -9,6 +9,7 @@
 // класс хранения (TTL). Значения секретов и сырой payload провайдера в запись
 // не попадают: сырые данные уходят только в privateDetailsRef.
 
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
@@ -31,6 +32,8 @@ const SENSITIVE_KEYS = [
   'payload',
   'privateDetails',
 ];
+
+const MAX_SAFE_SUMMARY_LENGTH = 240;
 
 function isSensitiveKey(key) {
   const normalized = String(key).toLowerCase();
@@ -77,8 +80,9 @@ function readLines(file) {
  * @param {string} options.file изолированный файл лога (production-логи неприкосновенны)
  * @param {() => Date} [options.now]
  * @param {(entry: object) => void} [options.sink] дополнительный durable sink
+ * @param {{ publishError: (event: object) => Promise<object> }} [options.errorPublisher] публикация ErrorEvent в Error Watcher (C12)
  */
-function createEventLog({ file, now = () => new Date(), sink } = {}) {
+function createEventLog({ file, now = () => new Date(), sink, errorPublisher = null } = {}) {
   if (!file) throw new Error('event log requires an isolated file');
 
   function write(event, fields = {}) {
@@ -92,19 +96,32 @@ function createEventLog({ file, now = () => new Date(), sink } = {}) {
     };
     delete entry.eventId;
     if (fields.eventId) entry.eventId = fields.eventId;
+    // correlation заполнен у каждого события: известные идентификаторы
+    // операции, отсутствующие — явный null (C12).
+    entry.correlation = {
+      userTaskId: fields.userTaskId ?? null,
+      runId: fields.runId ?? null,
+      traceId: fields.traceId ?? null,
+      ...(fields.correlation || {}),
+    };
     appendLine(file, entry);
     if (sink) sink(entry);
     return entry;
   }
 
-  function error({ code, operation, severity = 'error', retryable = false, outcome, safeSummary, privateDetailsRef = null, scope = {}, correlation = {}, replyContext = null, origin = { kind: 'application', incidentId: null, diagnosticDepth: 0 } }) {
-    return write('error', {
+  function error({ code, operation, severity = 'error', retryable = false, outcome, safeSummary, privateDetailsRef = null, scope = {}, correlation = null, replyContext = null, origin = { kind: 'application', incidentId: null, diagnosticDepth: 0 } }) {
+    const entry = write('error', {
+      eventId: `err_${crypto.randomBytes(12).toString('hex')}`,
       scope,
       correlation,
       replyContext,
       error: { code, operation, severity, retryable, outcome, safeSummary, privateDetailsRef },
       origin,
     });
+    if (errorPublisher && typeof errorPublisher.publishError === 'function') {
+      void errorPublisher.publishError(entry);
+    }
+    return entry;
   }
 
   return {
@@ -116,8 +133,46 @@ function createEventLog({ file, now = () => new Date(), sink } = {}) {
   };
 }
 
+function replyContextOf(replyContext) {
+  return {
+    channel: replyContext && replyContext.channel ? replyContext.channel : null,
+    destinationRef: replyContext && replyContext.destinationRef ? replyContext.destinationRef : null,
+    status: 'not_applicable',
+  };
+}
+
+/**
+ * Вызов `log.error()` на сайте сбоев: собирает C12-поля (scope, correlation,
+ * replyContext, origin) так, чтобы сайт не знал форму ErrorEvent.
+ */
+function reportError(log, { code, operation, detail = null, profileId = null, userTaskId = null, runId = null, traceId = null, replyContext = null } = {}) {
+  if (!log || typeof log.error !== 'function') return null;
+  const summary = detail === null || detail === undefined ? '' : String(detail).slice(0, MAX_SAFE_SUMMARY_LENGTH);
+  return log.error({
+    code,
+    operation,
+    severity: 'error',
+    retryable: true,
+    outcome: 'failed',
+    safeSummary: summary || String(code),
+    scope: {
+      kind: profileId ? 'profile' : 'platform',
+      tenantId: null,
+      profileId: profileId || null,
+    },
+    correlation: {
+      userTaskId: userTaskId || null,
+      runId: runId || null,
+      traceId: traceId || null,
+    },
+    replyContext: replyContextOf(replyContext),
+    origin: { kind: 'application', incidentId: null, diagnosticDepth: 0 },
+  });
+}
+
 module.exports = {
   createEventLog,
+  reportError,
   sanitizeFields,
   SENSITIVE_KEYS,
   SOURCE,

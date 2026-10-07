@@ -17,7 +17,8 @@ const crypto = require('crypto');
 
 const { GATE_CONTRACT_VERSION } = require('../contract/version');
 const { blockedSummary } = require('../contract/outcomes');
-const { createEventLog } = require('../contract/events');
+const { createEventLog, reportError } = require('../contract/events');
+const { resolveErrorPublisher } = require('../error-publisher');
 const { createCredentialResolver, writeBindingValue, BINDING_STORE_DIR } = require('./bindings');
 const { createOperationLedger } = require('./operation-ledger');
 const { createAdapterRegistry } = require('./adapter-registry');
@@ -34,6 +35,7 @@ const { createSubscriptionStore, STORE_DIR } = require('./subscription-store');
  * @param {object} [options.credentialResolver] свой резолвер bindings
  * @param {object} [options.adapterRegistry] свой реестр адаптеров
  * @param {object} [options.bindingPolicy] явная политика создания задач из независимых событий
+ * @param {object} [options.errorPublisher] publisher C12 ErrorEvent для собственного event log (иначе ERROR_WATCHER_URL/ERROR_WATCHER_KEY окружения)
  */
 function createIntegrationGate({
   dataRoot,
@@ -43,10 +45,15 @@ function createIntegrationGate({
   adapterRegistry,
   bindingPolicy = { createTaskForUnmatchedEvent: false },
   readProbePayload = null,
+  errorPublisher = undefined,
 } = {}) {
   if (!dataRoot) throw new Error('integration gate requires an isolated dataRoot');
 
-  const resolvedLog = log || createEventLog({ file: path.join(dataRoot, 'gate', 'events.jsonl'), now });
+  const resolvedLog = log || createEventLog({
+    file: path.join(dataRoot, 'gate', 'events.jsonl'),
+    now,
+    errorPublisher: errorPublisher === undefined ? resolveErrorPublisher(process.env) : errorPublisher,
+  });
   const bindingsDir = path.join(dataRoot, BINDING_STORE_DIR);
   const resolver = credentialResolver || createCredentialResolver({ storeDir: bindingsDir, now });
   const ledger = createOperationLedger({ root: path.join(dataRoot, 'gate'), now, log: resolvedLog });
@@ -179,6 +186,10 @@ function createIntegrationGate({
       detail: result.detail,
     });
 
+    const blockedDetail = outcome === 'blocked'
+      ? blockedSummary(result.detail && result.detail.includes('expired') ? 'expired' : 'denied')
+      : null;
+
     if (outcome === 'blocked') {
       resolvedLog.write('operation.blocked', {
         operationId: entry.operationId,
@@ -190,7 +201,16 @@ function createIntegrationGate({
         from: 'pending',
         to: 'blocked',
         reasonCode: result.code,
-        detail: blockedSummary(result.detail && result.detail.includes('expired') ? 'expired' : 'denied'),
+        detail: blockedDetail,
+      });
+      reportError(resolvedLog, {
+        code: 'OPERATION_BLOCKED',
+        operation: 'invoke',
+        detail: blockedDetail,
+        profileId,
+        userTaskId,
+        runId,
+        replyContext,
       });
     }
 
@@ -199,7 +219,7 @@ function createIntegrationGate({
       outcome,
       code: result.code,
       detail: result.detail,
-      safeSummary: outcome === 'blocked' ? blockedSummary(result.detail && result.detail.includes('expired') ? 'expired' : 'denied') : null,
+      safeSummary: blockedDetail,
       receipt: result.receipt,
       externalOperationRef: result.externalOperationRef,
       eventId: result.eventId,
@@ -209,6 +229,7 @@ function createIntegrationGate({
   }
 
   function blockedResult({ code, detail, profileId, userTaskId, runId, replyContext, integrationBindingId }) {
+    const summary = blockedSummary(code === 'BINDING_EXPIRED' ? 'expired' : 'denied');
     resolvedLog.write('operation.blocked', {
       integrationBindingId,
       profileId,
@@ -217,14 +238,23 @@ function createIntegrationGate({
       from: 'requested',
       to: 'blocked',
       reasonCode: code,
-      detail: blockedSummary(code === 'BINDING_EXPIRED' ? 'expired' : 'denied'),
+      detail: summary,
+    });
+    reportError(resolvedLog, {
+      code: 'OPERATION_BLOCKED',
+      operation: 'invoke',
+      detail: summary,
+      profileId,
+      userTaskId,
+      runId,
+      replyContext,
     });
     return {
       ...envelope({ profileId, userTaskId, runId, replyContext }),
       outcome: 'blocked',
       code,
       detail,
-      safeSummary: blockedSummary(code === 'BINDING_EXPIRED' ? 'expired' : 'denied'),
+      safeSummary: summary,
       receipt: null,
       externalOperationRef: null,
       retryAllowed: false,
