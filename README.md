@@ -18,7 +18,7 @@ Trained Assist External Integration Gate: единый контракт тран
 
 ```bash
 npm run check                 # синтаксис всех модулей
-npm test                      # 38 проверок контракта и приёмки (P25 + P26)
+npm test                      # 49 проверок контракта и приёмки (P25 + P26 + I7)
 npm run sandbox               # сценарий P25 → docs/evidence/p25-integration-gate
 npm run sandbox:p26           # сценарий P26 → docs/evidence/p26-hh-pilot
 npm run evidence:verify       # сверка transcript P25 с закоммиченным
@@ -38,3 +38,12 @@ npm run evidence:verify:p26   # сверка transcript P26 с закоммич�
 ## Контекст репозитория
 
 CI `Repository context` на каждый PR и main собирает карту [REPO-MAP.md](https://github.com/trained-assist/trained-assist-integration-gate/blob/repo-context/REPO-MAP.md) и сжатый пакет (I00/Z03).
+
+## Observability — Error Watcher
+
+Этот репозиторий публикует error-события в [trained-assist-error-watcher](https://github.com/trained-assist/trained-assist-error-watcher) — общую точку сбора ошибок платформы.
+
+- [Error Watcher](https://github.com/trained-assist/trained-assist-error-watcher)
+- [Архитектура](https://github.com/trained-assist/trained-agent-architecture)
+- [SYSTEM-ERROR-WATCHER.md](https://github.com/trained-assist/trained-agent-architecture/blob/main/SYSTEM-ERROR-WATCHER.md) — спека
+- [OBSERVABILITY-AND-ERROR-CONTRACT.md](https://github.com/trained-assist/trained-agent-architecture/blob/main/OBSERVABILITY-AND-ERROR-CONTRACT.md) — контракт observability/error

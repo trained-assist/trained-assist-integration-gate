@@ -16,6 +16,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { verify: verifySignature } = require('./webhook-signature');
+const { reportError } = require('../contract/events');
 
 const RECEIVED_FILE = 'received.jsonl';
 const APPLIED_FILE = 'applied.jsonl';
@@ -161,6 +162,7 @@ function createWebhookInbox({ root, log, clock = () => new Date(), dispatch, sec
           return result;
         })
         .catch(error => {
+          const detail = String(error && error.message ? error.message : error);
           log?.write('callback.dispatch_failed', {
             providerEventId: receipt.providerEventId,
             subscriptionId: receipt.subscriptionId,
@@ -168,7 +170,16 @@ function createWebhookInbox({ root, log, clock = () => new Date(), dispatch, sec
             from: 'accepted',
             to: 'dispatch_failed',
             reasonCode: 'CALLBACK_DISPATCH_FAILED',
-            detail: String(error && error.message ? error.message : error),
+            detail,
+          });
+          reportError(log, {
+            code: 'CALLBACK_DISPATCH_FAILED',
+            operation: 'dispatchCallback',
+            detail,
+            profileId: envelope.profileId || null,
+            userTaskId: envelope.userTaskId || null,
+            runId: envelope.runId || null,
+            replyContext: envelope.replyContext || null,
           });
         })
         .finally(() => pending.delete(work));
