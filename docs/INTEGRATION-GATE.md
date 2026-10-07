@@ -38,7 +38,8 @@
 |---|---|
 | `src/contract/version.js` | версии контракта: `gate-contract/v1`, `provider-adapter/v1`, подпись `v1` |
 | `src/contract/outcomes.js` | нормализованные исходы (`accepted`/`result`/`failed`/`outcome_unknown`/`blocked`) и коды; словарь общий с P15 |
-| `src/contract/events.js` | общий event log: scope, correlation, `safeSummary`/`privateDetailsRef`, класс хранения; вычистка секретов |
+| `src/contract/events.js` | общий event log: scope, correlation, `safeSummary`/`privateDetailsRef`, класс хранения; вычистка секретов; вызов `events.error()` на сайтах сбоев |
+| `src/error-publisher.js` | publisher C12 ErrorEvent в Error Watcher: fire-and-forget POST `/errors`, in-memory spool и dropped count |
 | `src/gate/bindings.js` | credential bindings и host-owned резолвер значений (граница Credential Broker) |
 | `src/gate/operation-ledger.js` | operationId до вызова; `outcome_unknown`; reconcile; запрет повтора до reconcile |
 | `src/gate/adapter-registry.js` | реестр адаптеров: одна реализация на провайдера, версия протокола |
@@ -53,6 +54,7 @@
 | `src/http/server.js` | versioned HTTP-фасад Gate |
 | `scripts/sandbox/integration-gate-sandbox.cjs` | сценарий этапа: одна команда, PASS/FAIL, воспроизводимый transcript |
 | `tests/integration-gate.test.js` | 19 проверок контракта и приёмки |
+| `tests/error-publisher.test.js` | publisher ошибок, `events.error()` на сайтах сбоев, correlation |
 
 Запуск:
 

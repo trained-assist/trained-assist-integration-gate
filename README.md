@@ -18,7 +18,7 @@ Trained Assist External Integration Gate: единый контракт тран
 
 ```bash
 npm run check                 # синтаксис всех модулей
-npm test                      # 38 проверок контракта и приёмки (P25 + P26)
+npm test                      # 49 проверок контракта и приёмки (P25 + P26 + I7)
 npm run sandbox               # сценарий P25 → docs/evidence/p25-integration-gate
 npm run sandbox:p26           # сценарий P26 → docs/evidence/p26-hh-pilot
 npm run evidence:verify       # сверка transcript P25 с закоммиченным
